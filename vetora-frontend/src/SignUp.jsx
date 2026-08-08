@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate, Link } from 'react-router-dom'; // 💡 React Router Import කළා
+import { useNavigate, Link } from 'react-router-dom';
 
 const SignUp = () => {
-  const navigate = useNavigate(); // 💡 Navigation Hook එක
+  const navigate = useNavigate();
 
-  // 💡 2. Back arrow එකෙන් SignUp Page එකට ආපු ගමන් Session/Storage Clear වන කේතය
+  // 1. Session clear - safer than localStorage.clear()
   useEffect(() => {
     localStorage.removeItem('user');
-    localStorage.clear();
+    localStorage.removeItem('token');
   }, []);
 
   const [formData, setFormData] = useState({
@@ -32,9 +32,6 @@ const SignUp = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
 
-  
-
-  // Sri Lanka Districts & Cities Data Map
   const districtCityMap = {
     Colombo: ['Colombo 01-15', 'Nugegoda', 'Dehiwala', 'Maharagama', 'Kotte', 'Homagama'],
     Galle: ['Galle Fort', 'Ambalangoda', 'Hikkaduwa', 'Karapitiya', 'Elpitiya', 'Baddegama'],
@@ -46,22 +43,37 @@ const SignUp = () => {
     Kalutara: ['Kalutara', 'Panadura', 'Horana', 'Matugama']
   };
 
+  // 2. Clear doctor fields when switching back to PET_OWNER
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'district') {
-      setFormData({ ...formData, district: value, city: '' });
+
+    if (name === 'role' && value === 'PET_OWNER') {
+      setFormData((prev) => ({
+        ...prev,
+        role: value,
+        slvcRegistrationNumber: '',
+        qualifications: [],
+        otherQualifications: '',
+        specialisation: '',
+        yearsOfExperience: '',
+        clinicAddress: '',
+        district: '',
+        city: '',
+        clinicName: '',
+      }));
+    } else if (name === 'district') {
+      setFormData((prev) => ({ ...prev, district: value, city: '' }));
     } else {
-      setFormData({ ...formData, [name]: value });
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  // Qualifications Multi-select Logic
   const handleQualificationChange = (qual) => {
     setFormData((prev) => {
       const exists = prev.qualifications.includes(qual);
       return {
         ...prev,
-        qualifications: exists 
+        qualifications: exists
           ? prev.qualifications.filter((q) => q !== qual)
           : [...prev.qualifications, qual]
       };
@@ -92,17 +104,22 @@ const SignUp = () => {
     setMessage({ type: '', text: '' });
 
     const finalQualifications = [
-      ...formData.qualifications, 
-      formData.otherQualifications
+      ...formData.qualifications,
+      formData.otherQualifications.trim()
     ].filter(Boolean).join(', ');
 
     const payload = {
       ...formData,
+      name: formData.name.trim(),
+      email: formData.email.trim(),
       qualifications: finalQualifications
     };
 
+    // 3. Dynamic Environment variable for API endpoint
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
+
     try {
-      await axios.post('http://localhost:8080/api/v1/users/register', payload);
+      await axios.post(`${API_BASE_URL}/api/v1/users/register`, payload);
 
       if (formData.role === 'DOCTOR') {
         setMessage({
@@ -116,15 +133,20 @@ const SignUp = () => {
         });
       }
 
-      // 💡 Register වුණාට පස්සේ Auto Login Page එකට යවයි
       setTimeout(() => {
         navigate('/login');
       }, 2500);
 
     } catch (error) {
+      // 4. Safe Axios error object parsing
+      const errorMsg =
+        error.response?.data?.message ||
+        (typeof error.response?.data === 'string' ? error.response.data : null) ||
+        'Registration failed. Please try again.';
+
       setMessage({
         type: 'error',
-        text: error.response?.data || 'Registration failed. Please try again.'
+        text: errorMsg
       });
     } finally {
       setLoading(false);
@@ -145,8 +167,8 @@ const SignUp = () => {
         {message.text && (
           <div className={`p-2.5 rounded-lg text-xs font-medium border mb-2 ${
             message.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
           }`}>
             {message.text}
           </div>
@@ -161,10 +183,10 @@ const SignUp = () => {
               name="role"
               value={formData.role}
               onChange={handleInputChange}
-              className="w-full bg-slate-950 border border-emerald-500/50 text-emerald-400 rounded-lg p-2 text-xs focus:ring-1 focus:ring-emerald-500 outline-none cursor-pointer"
+              className="w-full bg-slate-950 border border-blue-500/50 text-blue-400 font-medium rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
             >
-              <option value="PET_OWNER">Pet Owner</option>
-              <option value="DOCTOR">Veterinary Doctor</option>
+              <option value="PET_OWNER" className="bg-slate-900 text-white">Pet Owner</option>
+              <option value="DOCTOR" className="bg-slate-900 text-white">Veterinary Doctor</option>
             </select>
           </div>
 
@@ -179,7 +201,7 @@ const SignUp = () => {
                 value={formData.name}
                 onChange={handleInputChange}
                 placeholder={formData.role === 'DOCTOR' ? 'Dr. Nimal Perera' : 'Nimal Perera'}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-emerald-500 outline-none"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:border-blue-500 outline-none"
               />
             </div>
 
@@ -192,12 +214,12 @@ const SignUp = () => {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="nimal@gmail.com"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-emerald-500 outline-none"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:border-blue-500 outline-none"
               />
             </div>
           </div>
 
-          {/* Password Field + Eye Icon + Interactive Checklist */}
+          {/* Password Field + Eye Icon + Checklist */}
           <div>
             <label className="text-[11px] font-semibold text-slate-300 block mb-1">Password</label>
             <div className="relative">
@@ -208,10 +230,11 @@ const SignUp = () => {
                 value={formData.password}
                 onChange={handleInputChange}
                 placeholder="••••••••"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 pr-10 text-xs text-white placeholder-slate-600 focus:border-emerald-500 outline-none"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 pr-10 text-xs text-white placeholder-slate-500 focus:border-blue-500 outline-none"
               />
               <button
                 type="button"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs focus:outline-none cursor-pointer"
               >
@@ -221,28 +244,28 @@ const SignUp = () => {
 
             {/* Password Real-time Checklist */}
             <div className="mt-2 grid grid-cols-2 gap-1 text-[10px]">
-              <div className={`flex items-center gap-1 ${isMinLength ? 'text-emerald-400 font-medium' : 'text-slate-500'}`}>
+              <div className={`flex items-center gap-1 ${isMinLength ? 'text-blue-400 font-medium' : 'text-slate-500'}`}>
                 <span>{isMinLength ? '✓' : '○'}</span> At least 8 characters
               </div>
-              <div className={`flex items-center gap-1 ${hasUpper ? 'text-emerald-400 font-medium' : 'text-slate-500'}`}>
+              <div className={`flex items-center gap-1 ${hasUpper ? 'text-blue-400 font-medium' : 'text-slate-500'}`}>
                 <span>{hasUpper ? '✓' : '○'}</span> Uppercase letter (A-Z)
               </div>
-              <div className={`flex items-center gap-1 ${hasLower ? 'text-emerald-400 font-medium' : 'text-slate-500'}`}>
+              <div className={`flex items-center gap-1 ${hasLower ? 'text-blue-400 font-medium' : 'text-slate-500'}`}>
                 <span>{hasLower ? '✓' : '○'}</span> Lowercase letter (a-z)
               </div>
-              <div className={`flex items-center gap-1 ${hasNumber ? 'text-emerald-400 font-medium' : 'text-slate-500'}`}>
+              <div className={`flex items-center gap-1 ${hasNumber ? 'text-blue-400 font-medium' : 'text-slate-500'}`}>
                 <span>{hasNumber ? '✓' : '○'}</span> Number (0-9)
               </div>
-              <div className={`flex items-center gap-1 ${hasSpecial ? 'text-emerald-400 font-medium' : 'text-slate-500'}`}>
+              <div className={`flex items-center gap-1 ${hasSpecial ? 'text-blue-400 font-medium' : 'text-slate-500'}`}>
                 <span>{hasSpecial ? '✓' : '○'}</span> Special symbol (!@#$)
               </div>
             </div>
           </div>
 
-          {/* 🩺 DOCTOR SPECIFIC DETAILS */}
+          {/* DOCTOR SPECIFIC DETAILS */}
           {formData.role === 'DOCTOR' && (
             <div className="border-t border-slate-800/80 pt-2 mt-2 space-y-2">
-              <h4 className="text-xs font-semibold text-emerald-400">Veterinary Professional Details</h4>
+              <h4 className="text-xs font-semibold text-blue-400">Veterinary Professional Details</h4>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
@@ -254,7 +277,7 @@ const SignUp = () => {
                     value={formData.slvcRegistrationNumber}
                     onChange={handleInputChange}
                     placeholder="SLVC-1234"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-emerald-500 outline-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:border-blue-500 outline-none"
                   />
                 </div>
 
@@ -266,7 +289,7 @@ const SignUp = () => {
                     value={formData.specialisation}
                     onChange={handleInputChange}
                     placeholder="Small Animals / Surgery"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-emerald-500 outline-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:border-blue-500 outline-none"
                   />
                 </div>
 
@@ -274,11 +297,12 @@ const SignUp = () => {
                   <label className="text-[11px] font-semibold text-slate-300 block mb-1">Years of Experience</label>
                   <input
                     type="number"
+                    min="0"
                     name="yearsOfExperience"
                     value={formData.yearsOfExperience}
                     onChange={handleInputChange}
                     placeholder="5"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-emerald-500 outline-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:border-blue-500 outline-none"
                   />
                 </div>
               </div>
@@ -293,7 +317,7 @@ const SignUp = () => {
                         type="checkbox"
                         checked={formData.qualifications.includes(qual)}
                         onChange={() => handleQualificationChange(qual)}
-                        className="rounded accent-emerald-500 bg-slate-950 border-slate-800"
+                        className="rounded accent-blue-600 bg-slate-950 border-slate-800"
                       />
                       {qual}
                     </label>
@@ -305,7 +329,7 @@ const SignUp = () => {
                   value={formData.otherQualifications}
                   onChange={handleInputChange}
                   placeholder="Other degrees / qualifications (e.g. Postgraduate Diploma)"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white placeholder-slate-600 focus:border-emerald-500 outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white placeholder-slate-500 focus:border-blue-500 outline-none"
                 />
               </div>
 
@@ -319,7 +343,7 @@ const SignUp = () => {
                     value={formData.clinicAddress}
                     onChange={handleInputChange}
                     placeholder="Galle Road"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-emerald-500 outline-none"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:border-blue-500 outline-none"
                   />
                 </div>
 
@@ -329,11 +353,11 @@ const SignUp = () => {
                     name="district"
                     value={formData.district}
                     onChange={handleInputChange}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none cursor-pointer"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2 text-xs focus:border-blue-500 outline-none cursor-pointer"
                   >
-                    <option value="">Select District</option>
+                    <option value="" className="bg-slate-900 text-white">Select District</option>
                     {Object.keys(districtCityMap).map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                      <option key={d} value={d} className="bg-slate-900 text-white">{d}</option>
                     ))}
                   </select>
                 </div>
@@ -345,11 +369,11 @@ const SignUp = () => {
                     value={formData.city}
                     onChange={handleInputChange}
                     disabled={!formData.district}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none cursor-pointer disabled:opacity-50"
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2 text-xs focus:border-blue-500 outline-none cursor-pointer disabled:opacity-50"
                   >
-                    <option value="">Select City</option>
+                    <option value="" className="bg-slate-900 text-white">Select City</option>
                     {formData.district && districtCityMap[formData.district]?.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c} className="bg-slate-900 text-white">{c}</option>
                     ))}
                   </select>
                 </div>
@@ -364,7 +388,7 @@ const SignUp = () => {
                   value={formData.clinicName}
                   onChange={handleInputChange}
                   placeholder="VetCare Animal Hospital"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-600 focus:border-emerald-500 outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:border-blue-500 outline-none"
                 />
               </div>
             </div>
@@ -374,7 +398,7 @@ const SignUp = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-lg text-xs transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50 cursor-pointer mt-2"
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-xs transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 cursor-pointer mt-2"
           >
             {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
@@ -385,7 +409,7 @@ const SignUp = () => {
           Already have an account?{' '}
           <Link
             to="/login"
-            className="text-emerald-400 hover:underline font-semibold"
+            className="text-blue-400 hover:underline font-semibold"
           >
             Log In
           </Link>

@@ -4,6 +4,7 @@ import Login from './Login';
 import SignUp from './SignUp';
 import AdminDashboard from './AdminDashboard';
 import UserDashboard from './UserDashboard';
+import Home from './Home'; // 1. Home Component එක Import කිරීම
 
 // Local Storage එකෙන් User ගන්න Helper එක
 const getStoredUser = () => {
@@ -20,7 +21,7 @@ const getStoredUser = () => {
 const ProtectedRoute = ({ children, allowedRole }) => {
   const currentUser = getStoredUser();
 
-  // User කෙනෙක් නැත්නම් Login එකට යවනවා (History එක Replace කරනවා)
+  // User කෙනෙක් නැත්නම් Login එකට යවනවා
   if (!currentUser) {
     return <Navigate to="/login" replace={true} />;
   }
@@ -40,27 +41,14 @@ function App() {
   // 💡 Security Logout Function
   const handleLogout = () => {
     localStorage.removeItem('user'); // LocalStorage එකෙන් user අයින් කරනවා
-    localStorage.clear();            // සරලවම LocalStorage ඔක්කොම clear කරනවා
-    navigate('/login', { replace: true }); // Forward/Back යන්න බැරි වෙන්න History එක replace කරනවා
+    localStorage.clear();            // LocalStorage ඔක්කොම clear කරනවා
+    navigate('/login', { replace: true }); // History එක replace කරනවා
   };
 
   return (
     <Routes>
-      {/* 💡 Default Route */}
-      <Route 
-        path="/" 
-        element={
-          currentUser ? (
-            currentUser.role === 'ADMIN' ? (
-              <Navigate to="/admin-dashboard" replace={true} />
-            ) : (
-              <Navigate to="/user-dashboard" replace={true} />
-            )
-          ) : (
-            <Navigate to="/login" replace={true} />
-          )
-        } 
-      />
+      {/* 💡 Main Landing Page (Home Page) */}
+      <Route path="/" element={<Home />} />
 
       {/* 💡 Public Routes */}
       <Route path="/login" element={<Login />} />
@@ -86,8 +74,8 @@ function App() {
         } 
       />
 
-      {/* 💡 Fallback Route */}
-      <Route path="*" element={<Navigate to="/login" replace={true} />} />
+      {/* 💡 Fallback Route - වෙනත් ඕනෑම නොදන්නා Path එකකට ගියොත් Home එකට යවනවා */}
+      <Route path="*" element={<Navigate to="/" replace={true} />} />
     </Routes>
   );
 }
