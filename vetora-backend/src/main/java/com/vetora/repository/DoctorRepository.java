@@ -11,13 +11,12 @@ import java.util.Optional;
 @Repository
 public interface DoctorRepository extends JpaRepository<Doctor, Long> {
 
-    // User account එකෙන් Doctor Profile එක සොයාගැනීමට
+    // ✅ User අනුව Doctor සොයාගැනීමට
     Optional<Doctor> findByUser(User user);
 
-    // 💡 1. Pending Doctors ලා (isApproved = false අය) අරන් බලන්න
-    List<Doctor> findByIsApprovedFalse();
+    // ✅ Admin approve නොකළ (Pending) Doctors ලා ලබාගැනීමට (මෙම Method එක එකතු කරන්න)
+    List<Doctor> findByApprovedFalse();
 
-    // 💡 2. Approved Doctors ලා විතරක් අරන් බලන්න
-    List<Doctor> findByIsApprovedTrue();
-
+    // ✅ Approve වූ Doctors ලා පමණක් ලබාගැනීමට
+    List<Doctor> findByApprovedTrue();
 }

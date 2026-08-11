@@ -2,55 +2,104 @@ package com.vetora.service;
 
 import com.vetora.entity.Doctor;
 import com.vetora.entity.User;
+import com.vetora.enums.Role;
 import com.vetora.repository.DoctorRepository;
 import com.vetora.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class AdminService {
 
-    @Autowired
-    private DoctorRepository doctorRepository;
+    private static final Logger logger = LoggerFactory.getLogger(AdminService.class);
+    private final DoctorRepository doctorRepository;
+    private final UserRepository userRepository;
+    private final EmailService emailService;
 
-    @Autowired
-    private UserRepository userRepository;
+    public AdminService(DoctorRepository doctorRepository,
+                        UserRepository userRepository,
+                        EmailService emailService) {
+        this.doctorRepository = doctorRepository;
+        this.userRepository = userRepository;
+        this.emailService = emailService;
+    }
 
-    // 1. Admin විසින් Doctor කෙනෙකුව Approve කිරීම
     @Transactional
-    public void approveDoctor(Long doctorId) {
+    public Doctor approveDoctor(Long doctorId) {
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + doctorId));
-
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
         doctor.setApproved(true);
-        doctorRepository.save(doctor);
+        Doctor savedDoctor = doctorRepository.save(doctor);
+
+        User user = doctor.getUser();
+
+        try {
+            emailService.sendApprovalEmail(user.getEmail(), user.getName());
+            logger.info("✅ Approval email sent to: {}", user.getEmail());
+        } catch (Exception e) {
+            logger.error("❌ Failed to send approval email: {}", e.getMessage());
+        }
+
+        return savedDoctor;
     }
 
-    // 2. Pending ඉන්න Doctors ලාගේ List එක ලබාගැනීම
-    public List<Doctor> getPendingDoctors() {
-        return doctorRepository.findByIsApprovedFalse();
-    }
-
-    // 3. Admin විසින් Doctor කෙනෙකුව Reject / Delete කිරීම
     @Transactional
     public void rejectDoctor(Long doctorId) {
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + doctorId));
-
-        // Doctor Record එක සහ ඊට අදාළ User Account එක දෙකම Delete කිරීම
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
         User user = doctor.getUser();
-        doctorRepository.delete(doctor);
 
-        if (user != null) {
-            userRepository.delete(user);
+        try {
+            emailService.sendRejectionEmail(user.getEmail(), user.getName(), "Registration rejected by admin");
+            logger.info("✅ Rejection email sent to: {}", user.getEmail());
+        } catch (Exception e) {
+            logger.error("❌ Failed to send rejection email: {}", e.getMessage());
         }
+
+        doctorRepository.delete(doctor);
+        userRepository.delete(user);
     }
 
-    // 4. System එකේ ඉන්න සියලුම Users ලාගේ List එක ලබාගැනීම
+    public Doctor getDoctorById(Long doctorId) {
+        return doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+    }
+
+    public List<Doctor> getPendingDoctors() {
+        return doctorRepository.findByApprovedFalse();
+    }
+
     public List<User> getAllUsers() {
         return userRepository.findAll();
+    }
+
+    public String getAdminEmail() {
+        try {
+            List<User> admins = userRepository.findByRole(Role.ADMIN);
+            if (admins != null && !admins.isEmpty() && admins.get(0).getEmail() != null) {
+                return admins.get(0).getEmail();
+            }
+        } catch (Exception e) {
+            logger.warn("⚠️ Could not fetch admin email from DB: {}", e.getMessage());
+        }
+        return "admin@vetora.com";
+    }
+
+    public List<String> getAllAdminEmails() {
+        try {
+            return userRepository.findByRole(Role.ADMIN)
+                    .stream()
+                    .map(User::getEmail)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.warn("⚠️ Could not fetch admin emails: {}", e.getMessage());
+            return Collections.singletonList("admin@vetora.com");
+        }
     }
 }

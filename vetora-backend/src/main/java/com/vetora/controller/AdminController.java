@@ -3,9 +3,9 @@ package com.vetora.controller;
 import com.vetora.entity.Doctor;
 import com.vetora.entity.User;
 import com.vetora.service.AdminService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,10 +15,14 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class AdminController {
 
-    @Autowired
-    private AdminService adminService; // 💡 AdminService එක Inject කළා
+    private final AdminService adminService;
 
-    // 1. Doctor කෙනෙක්ව Approve කිරීම
+    public AdminController(AdminService adminService) {
+        this.adminService = adminService;
+    }
+
+    // Only ADMIN can access these endpoints
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/doctors/{doctorId}/approve")
     public ResponseEntity<?> approveDoctor(@PathVariable Long doctorId) {
         try {
@@ -30,14 +34,14 @@ public class AdminController {
         }
     }
 
-    // 2. Pending Doctors ලාගේ List එක ගන්න
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/doctors/pending")
     public ResponseEntity<List<Doctor>> getPendingDoctors() {
         List<Doctor> pendingDoctors = adminService.getPendingDoctors();
         return ResponseEntity.ok(pendingDoctors);
     }
 
-    // 3. Doctor කෙනෙක්ව Reject කිරීම
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/doctors/{doctorId}/reject")
     public ResponseEntity<?> rejectDoctor(@PathVariable Long doctorId) {
         try {
@@ -49,7 +53,7 @@ public class AdminController {
         }
     }
 
-    // 4. ඔක්කොම Users ලාගේ List එක ගන්න
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/users")
     public ResponseEntity<List<User>> getAllUsers() {
         return ResponseEntity.ok(adminService.getAllUsers());

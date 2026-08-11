@@ -19,6 +19,8 @@ public class SignUpRequest {
     private String city;
     private String clinicName;
     private String clinicAddress; // 💡 මෙන්න මේ field එක එකතු කළා
+    private String phone;
+    private String address;
 
     // Default Constructor
     public SignUpRequest() {
@@ -61,4 +63,19 @@ public class SignUpRequest {
     // 💡 clinicAddress සඳහා Getter සහ Setter
     public String getClinicAddress() { return clinicAddress; }
     public void setClinicAddress(String clinicAddress) { this.clinicAddress = clinicAddress; }
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
 }

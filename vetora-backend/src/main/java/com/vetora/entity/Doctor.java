@@ -31,7 +31,7 @@ public class Doctor {
     private String profileImage = "default-avatar.png";
 
     @Column(name = "is_approved", nullable = false)
-    private Boolean isApproved = false;
+    private Boolean approved = false;
 
     // No-Args Constructor
     public Doctor() {
@@ -41,7 +41,7 @@ public class Doctor {
     public Doctor(Long id, User user, String phoneNumber, String slvcRegistrationNumber, String qualifications,
                   String specialisation, Integer yearsOfExperience, Integer age, String gender,
                   String district, String city, String clinicName, String clinicAddress,
-                  String profileImage, Boolean isApproved) {
+                  String profileImage, Boolean approved) {
         this.id = id;
         this.user = user;
         this.phoneNumber = phoneNumber;
@@ -56,7 +56,7 @@ public class Doctor {
         this.clinicName = clinicName;
         this.clinicAddress = clinicAddress;
         this.profileImage = profileImage;
-        this.isApproved = isApproved != null ? isApproved : false;
+        this.approved = approved != null ? approved : false;
     }
 
     // Getters and Setters
@@ -102,6 +102,7 @@ public class Doctor {
     public String getProfileImage() { return profileImage; }
     public void setProfileImage(String profileImage) { this.profileImage = profileImage; }
 
-    public Boolean isApproved() { return isApproved; }
-    public void setApproved(Boolean approved) { isApproved = approved; }
+    public Boolean getApproved() { return approved; }
+    public Boolean isApproved() { return approved; }
+    public void setApproved(Boolean approved) { this.approved = approved; }
 }
