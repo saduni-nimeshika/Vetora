@@ -32,25 +32,32 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // ✅ Public Endpoints - Email Verification එකත් ඇතුළත්
+                        // ✅ Public Endpoints
                         .requestMatchers(
                                 "/api/v1/users/register",
                                 "/api/v1/users/login",
                                 "/api/v1/users/verify-email",
-                                "/api/v1/auth/verify",          // ← මෙය Add කරන්න
-                                "/api/v1/auth/resend-verification",  // ← මෙය Add කරන්න
-                                "/api/v1/auth/verification-status"   // ← මෙය Add කරන්න
+                                "/api/v1/auth/verify",
+                                "/api/v1/auth/resend-verification",
+                                "/api/v1/auth/verification-status"
                         ).permitAll()
 
-                        // Admin only
+                        // ✅ Admin only
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
-                        // Doctor only
+                        // ✅ Doctor only
                         .requestMatchers("/api/v1/doctor/**").hasRole("DOCTOR")
 
-                        // Pet Owner only
-                        .requestMatchers("/api/v1/owner/**").hasRole("PET_OWNER")
+                        // ✅ Pet Owner only - හැම Pet Endpoint එකම
+                        .requestMatchers("/api/v1/owner/pets/**").hasRole("PET_OWNER")
 
+                        // ✅ Admin Pet Management (Adminට Pet ඔක්කොම බලන්න)
+                        .requestMatchers("/api/v1/owner/pets/admin/**").hasRole("ADMIN")
+
+                        // Doctor only - Pet View Endpoints
+                        .requestMatchers("/api/v1/doctor/pets/**").hasRole("DOCTOR")
+
+                        // All other requests need authentication
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
