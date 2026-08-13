@@ -28,6 +28,8 @@ public class PetService {
         this.userRepository = userRepository;
     }
 
+    // ========== PET OWNER METHODS ==========
+
     // ✅ FR-08: Register a new pet
     @Transactional
     public PetResponseDTO createPet(PetRequestDTO request, String ownerEmail) {
@@ -43,7 +45,7 @@ public class PetService {
         pet.setColor(request.getColor());
         pet.setWeight(request.getWeight());
         pet.setMedicalHistory(request.getMedicalHistory());
-        pet.setProfileImage(request.getProfileImage());  // Image
+        pet.setProfileImage(request.getProfileImage());
         pet.setOwner(owner);
         pet.setIsActive(true);
 
@@ -53,7 +55,7 @@ public class PetService {
         return convertToResponseDTO(savedPet);
     }
 
-    // ✅ FR-10: Get all pets for a user
+    // ✅ FR-10: Get all active pets for a user
     public List<PetResponseDTO> getPetsByOwner(String ownerEmail) {
         User owner = userRepository.findByEmail(ownerEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -64,13 +66,17 @@ public class PetService {
                 .collect(Collectors.toList());
     }
 
-    // ✅ FR-10: Get pet by ID
+    // ✅ FR-10: Get pet by ID (Active only)
     public PetResponseDTO getPetById(Long petId, String ownerEmail) {
         User owner = userRepository.findByEmail(ownerEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Pet pet = petRepository.findByIdAndOwner(petId, owner)
                 .orElseThrow(() -> new RuntimeException("Pet not found or you don't have access"));
+
+        if (!pet.getIsActive()) {
+            throw new RuntimeException("Pet has been deleted!");
+        }
 
         return convertToResponseDTO(pet);
     }
@@ -84,6 +90,10 @@ public class PetService {
         Pet pet = petRepository.findByIdAndOwner(petId, owner)
                 .orElseThrow(() -> new RuntimeException("Pet not found or you don't have access"));
 
+        if (!pet.getIsActive()) {
+            throw new RuntimeException("Cannot update a deleted pet!");
+        }
+
         pet.setName(request.getName());
         pet.setSpecies(request.getSpecies());
         pet.setBreed(request.getBreed());
@@ -92,7 +102,7 @@ public class PetService {
         pet.setColor(request.getColor());
         pet.setWeight(request.getWeight());
         pet.setMedicalHistory(request.getMedicalHistory());
-        pet.setProfileImage(request.getProfileImage());  // Image
+        pet.setProfileImage(request.getProfileImage());
 
         Pet updatedPet = petRepository.save(pet);
         logger.info("✅ Pet updated successfully: {}", updatedPet.getName());
@@ -109,12 +119,43 @@ public class PetService {
         Pet pet = petRepository.findByIdAndOwner(petId, owner)
                 .orElseThrow(() -> new RuntimeException("Pet not found or you don't have access"));
 
+        if (!pet.getIsActive()) {
+            throw new RuntimeException("Pet is already deleted!");
+        }
+
         pet.setIsActive(false);
         petRepository.save(pet);
         logger.info("✅ Pet deactivated successfully: {}", pet.getName());
     }
+    // ✅ Admin: Hard Delete (සම්පූර්ණයෙන්ම මකන්න)
+    @Transactional
+    public void hardDeletePet(Long petId) {
+        Pet pet = petRepository.findById(petId)
+                .orElseThrow(() -> new RuntimeException("Pet not found"));
 
-    // ✅ Admin: Get all pets
+        // Optional: Check if pet has active appointments
+        // If yes, prevent deletion
+        // List<Appointment> appointments = appointmentRepository.findByPetId(petId);
+        // if (!appointments.isEmpty()) {
+        //     throw new RuntimeException("Cannot delete pet with active appointments!");
+        // }
+
+        petRepository.delete(pet);
+        logger.info("✅ Pet permanently deleted by Admin: {}", pet.getName());
+    }
+
+    // ✅ Search pets by name (Active only)
+    public List<PetResponseDTO> searchPetsByName(String name) {
+        return petRepository.findByNameContainingIgnoreCase(name)
+                .stream()
+                .filter(Pet::getIsActive)
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ========== ADMIN METHODS ==========
+
+    // ✅ Admin: Get all pets (including deleted)
     public List<PetResponseDTO> getAllPets() {
         return petRepository.findAll()
                 .stream()
@@ -122,7 +163,7 @@ public class PetService {
                 .collect(Collectors.toList());
     }
 
-    // ✅ Admin: Get pets by species
+    // ✅ Admin: Get pets by species (all, including deleted)
     public List<PetResponseDTO> getPetsBySpecies(String species) {
         return petRepository.findBySpecies(species)
                 .stream()
@@ -130,17 +171,42 @@ public class PetService {
                 .collect(Collectors.toList());
     }
 
-    // ✅ Search pets by name
-    public List<PetResponseDTO> searchPetsByName(String name) {
-        return petRepository.findByNameContainingIgnoreCase(name)
+    // ✅ Admin: Get all pets including deleted
+    public List<PetResponseDTO> getAllPetsIncludingDeleted() {
+        return petRepository.findAll()
                 .stream()
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
     }
 
+    // ✅ Admin: Get deleted pets only
+    public List<PetResponseDTO> getDeletedPets() {
+        return petRepository.findByIsActiveFalse()
+                .stream()
+                .map(this::convertToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ✅ Admin: Restore deleted pet
+    @Transactional
+    public PetResponseDTO restorePet(Long petId) {
+        Pet pet = petRepository.findById(petId)
+                .orElseThrow(() -> new RuntimeException("Pet not found"));
+
+        if (pet.getIsActive()) {
+            throw new RuntimeException("Pet is already active!");
+        }
+
+        pet.setIsActive(true);
+        Pet restoredPet = petRepository.save(pet);
+
+        logger.info("✅ Pet restored successfully: {}", restoredPet.getName());
+        return convertToResponseDTO(restoredPet);
+    }
+
     // ========== DOCTOR METHODS ==========
 
-    // ✅ Get Pet Entity by ID (for Doctor)
+    // ✅ Get Pet Entity by ID (for Doctor - any status)
     public Pet getPetEntityById(Long petId) {
         return petRepository.findById(petId)
                 .orElseThrow(() -> new RuntimeException("Pet not found"));
@@ -161,6 +227,7 @@ public class PetService {
         history.put("weight", pet.getWeight());
         history.put("color", pet.getColor());
         history.put("profileImage", pet.getProfileImage());
+        history.put("isActive", pet.getIsActive());
         history.put("ownerName", pet.getOwner().getName());
         history.put("ownerEmail", pet.getOwner().getEmail());
 

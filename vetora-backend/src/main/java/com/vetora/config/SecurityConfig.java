@@ -32,7 +32,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // ✅ Public Endpoints
+                        // ✅ ========== PUBLIC ENDPOINTS ==========
                         .requestMatchers(
                                 "/api/v1/users/register",
                                 "/api/v1/users/login",
@@ -42,22 +42,22 @@ public class SecurityConfig {
                                 "/api/v1/auth/verification-status"
                         ).permitAll()
 
-                        // ✅ Admin only
+                        // ✅ ========== ADMIN ONLY ==========
+                        // Admin - User Management
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
-                        // ✅ Doctor only
-                        .requestMatchers("/api/v1/doctor/**").hasRole("DOCTOR")
-
-                        // ✅ Pet Owner only - හැම Pet Endpoint එකම
-                        .requestMatchers("/api/v1/owner/pets/**").hasRole("PET_OWNER")
-
-                        // ✅ Admin Pet Management (Adminට Pet ඔක්කොම බලන්න)
+                        // Admin - Pet Management (including restore, hard-delete)
                         .requestMatchers("/api/v1/owner/pets/admin/**").hasRole("ADMIN")
 
-                        // Doctor only - Pet View Endpoints
-                        .requestMatchers("/api/v1/doctor/pets/**").hasRole("DOCTOR")
+                        // ✅ ========== DOCTOR ONLY ==========
+                        // Doctor - Pet View Endpoints
+                        .requestMatchers("/api/v1/doctor/**").hasRole("DOCTOR")
 
-                        // All other requests need authentication
+                        // ✅ ========== PET OWNER ONLY ==========
+                        // Pet Owner - All Pet Endpoints
+                        .requestMatchers("/api/v1/owner/pets/**").hasRole("PET_OWNER")
+
+                        // ✅ ========== ALL OTHER REQUESTS ==========
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

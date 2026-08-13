@@ -2,7 +2,6 @@ package com.vetora.controller;
 
 import com.vetora.dto.PetRequestDTO;
 import com.vetora.dto.PetResponseDTO;
-import com.vetora.entity.Pet;  // ✅ මෙය Add කරන්න!
 import com.vetora.service.PetService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -60,6 +59,7 @@ public class PetController {
             Map<String, Object> response = new HashMap<>();
             response.put("pets", pets);
             response.put("count", pets.size());
+            response.put("note", "Only active pets are shown. Deleted pets are hidden.");
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
@@ -134,9 +134,9 @@ public class PetController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
-
     // ========== ADMIN ENDPOINTS ==========
 
+    // ✅ Admin: Get all pets (including deleted)
     @GetMapping("/owner/pets/admin/all")
     public ResponseEntity<?> adminGetAllPets() {
         try {
@@ -145,6 +145,7 @@ public class PetController {
             Map<String, Object> response = new HashMap<>();
             response.put("pets", pets);
             response.put("count", pets.size());
+            response.put("note", "Includes both active and deleted pets.");
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -154,14 +155,16 @@ public class PetController {
         }
     }
 
-    @GetMapping("/owner/pets/admin/species/{species}")
-    public ResponseEntity<?> adminGetPetsBySpecies(@PathVariable String species) {
+    // ✅ Admin: Get deleted pets only
+    @GetMapping("/owner/pets/admin/deleted")
+    public ResponseEntity<?> adminGetDeletedPets() {
         try {
-            List<PetResponseDTO> pets = petService.getPetsBySpecies(species);
+            List<PetResponseDTO> pets = petService.getDeletedPets();
 
             Map<String, Object> response = new HashMap<>();
             response.put("pets", pets);
             response.put("count", pets.size());
+            response.put("note", "These pets are soft-deleted and can be restored or permanently deleted.");
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -170,6 +173,44 @@ public class PetController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
+
+    // ✅ Admin: Restore soft-deleted pet
+    @PutMapping("/owner/pets/admin/restore/{petId}")
+    public ResponseEntity<?> adminRestorePet(@PathVariable Long petId) {
+        try {
+            PetResponseDTO restoredPet = petService.restorePet(petId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("pet", restoredPet);
+            response.put("message", "✅ Pet restored successfully!");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    // ✅ Admin: Hard Delete (සම්පූර්ණයෙන්ම මකන්න)
+    @DeleteMapping("/owner/pets/admin/hard-delete/{petId}")
+    public ResponseEntity<?> adminHardDeletePet(@PathVariable Long petId) {
+        try {
+            petService.hardDeletePet(petId);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "✅ Pet permanently deleted from the system!");
+            response.put("warning", "This action cannot be undone!");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+
 
     // ========== DOCTOR ENDPOINTS ==========
 
@@ -202,4 +243,5 @@ public class PetController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
         }
     }
+
 }
