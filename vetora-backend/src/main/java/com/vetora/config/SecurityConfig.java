@@ -57,6 +57,12 @@ public class SecurityConfig {
                         // Pet Owner - All Pet Endpoints
                         .requestMatchers("/api/v1/owner/pets/**").hasRole("PET_OWNER")
 
+                                // ✅ Doctor only - Medical Records
+                                .requestMatchers("/api/v1/doctor/medical-records/**").hasRole("DOCTOR")
+
+// ✅ Pet Owner only - View Medical Records
+                                .requestMatchers("/api/v1/owner/medical-records/**").hasRole("PET_OWNER")
+
                         // ✅ ========== ALL OTHER REQUESTS ==========
                         .anyRequest().authenticated()
                 )
