@@ -105,4 +105,30 @@ public class Doctor {
     public Boolean getApproved() { return approved; }
     public Boolean isApproved() { return approved; }
     public void setApproved(Boolean approved) { this.approved = approved; }
+
+    // Availability Fields
+    @Column(name = "available_days")
+    private String availableDays;  // "MON,TUE,WED,THU,FRI"
+
+    @Column(name = "available_start_time")
+    private String availableStartTime;  // "09:00"
+
+    @Column(name = "available_end_time")
+    private String availableEndTime;  // "17:00"
+
+    @Column(name = "slot_duration")
+    private Integer slotDuration = 30;  // Minutes per slot
+
+    // Getters and Setters
+    public String getAvailableDays() { return availableDays; }
+    public void setAvailableDays(String availableDays) { this.availableDays = availableDays; }
+
+    public String getAvailableStartTime() { return availableStartTime; }
+    public void setAvailableStartTime(String availableStartTime) { this.availableStartTime = availableStartTime; }
+
+    public String getAvailableEndTime() { return availableEndTime; }
+    public void setAvailableEndTime(String availableEndTime) { this.availableEndTime = availableEndTime; }
+
+    public Integer getSlotDuration() { return slotDuration; }
+    public void setSlotDuration(Integer slotDuration) { this.slotDuration = slotDuration; }
 }

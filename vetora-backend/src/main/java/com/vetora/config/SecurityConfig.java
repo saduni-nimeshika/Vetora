@@ -32,7 +32,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // ✅ ========== PUBLIC ENDPOINTS ==========
+                        // ✅ PUBLIC
                         .requestMatchers(
                                 "/api/v1/users/register",
                                 "/api/v1/users/login",
@@ -42,28 +42,25 @@ public class SecurityConfig {
                                 "/api/v1/auth/verification-status"
                         ).permitAll()
 
-                        // ✅ ========== ADMIN ONLY ==========
-                        // Admin - User Management
+                        // ✅ ADMIN
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-
-                        // Admin - Pet Management (including restore, hard-delete)
                         .requestMatchers("/api/v1/owner/pets/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/admin/appointments/**").hasRole("ADMIN")
 
-                        // ✅ ========== DOCTOR ONLY ==========
-                        // Doctor - Pet View Endpoints
+                        // ✅ 📌 SPECIFIC FIRST - හැමෝටම (PET_OWNER + DOCTOR + ADMIN)
+                        // Pet Owner ට Doctor Availability බලන්න පුළුවන්!
+                        .requestMatchers("/api/v1/doctor/availability/**").authenticated()
+                        .requestMatchers("/api/v1/appointments/**").authenticated()
+
+                        // ✅ 📌 DOCTOR ONLY - General Endpoints
                         .requestMatchers("/api/v1/doctor/**").hasRole("DOCTOR")
 
-                        // ✅ ========== PET OWNER ONLY ==========
-                        // Pet Owner - All Pet Endpoints
+                        // ✅ PET OWNER
                         .requestMatchers("/api/v1/owner/pets/**").hasRole("PET_OWNER")
+                        .requestMatchers("/api/v1/owner/medical-records/**").hasRole("PET_OWNER")
+                        .requestMatchers("/api/v1/owner/vaccinations/**").hasRole("PET_OWNER")
+                        .requestMatchers("/api/v1/owner/appointments/**").hasRole("PET_OWNER")
 
-                                // ✅ Doctor only - Medical Records
-                                .requestMatchers("/api/v1/doctor/medical-records/**").hasRole("DOCTOR")
-
-// ✅ Pet Owner only - View Medical Records
-                                .requestMatchers("/api/v1/owner/medical-records/**").hasRole("PET_OWNER")
-
-                        // ✅ ========== ALL OTHER REQUESTS ==========
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
