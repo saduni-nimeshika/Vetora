@@ -12,6 +12,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;      // ← මෙය Add කරන්න!
+
+import java.time.LocalTime;      // ← මෙය Add කරන්න!
 
 @Service
 public class EmailService {
@@ -174,6 +177,120 @@ public class EmailService {
             logger.info("✅ Doctor approval request sent to admin");
         } catch (Exception e) {
             logger.error("❌ Failed to send doctor approval request: {}", e.getMessage());
+        }
+    }
+
+    // ✅ Appointment Request Received (Pet Owner)
+    @Async
+    public void sendAppointmentRequestReceived(String to, String ownerName, String petName,
+                                               String doctorName, LocalDate date, LocalTime time) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("📅 VETORA - Appointment Request Received");
+            message.setText(
+                    "Dear " + ownerName + ",\n\n" +
+                            "✅ Your appointment request has been received!\n\n" +
+                            "📋 Details:\n" +
+                            "🐕 Pet: " + petName + "\n" +
+                            "👨‍⚕️ Doctor: Dr. " + doctorName + "\n" +
+                            "📅 Date: " + date + "\n" +
+                            "⏰ Time: " + time + "\n\n" +
+                            "⏳ Status: PENDING (Waiting for doctor approval)\n\n" +
+                            "You will receive a notification once the doctor approves your appointment.\n\n" +
+                            "Best Regards,\n" +
+                            "VETORA Team"
+            );
+            mailSender.send(message);
+            logger.info("✅ Appointment request received email sent to: {}", to);
+        } catch (Exception e) {
+            logger.error("❌ Failed to send appointment request email: {}", e.getMessage());
+        }
+    }
+
+    // ✅ New Appointment Request (Doctor)
+    @Async
+    public void sendNewAppointmentRequest(String to, String doctorName, String petName,
+                                          String ownerName, LocalDate date, LocalTime time,
+                                          Long appointmentId) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("📅 VETORA - New Appointment Request");
+            message.setText(
+                    "Dear Dr. " + doctorName + ",\n\n" +
+                            "📅 A new appointment request is waiting for your review!\n\n" +
+                            "📋 Details:\n" +
+                            "🐕 Pet: " + petName + "\n" +
+                            "👤 Owner: " + ownerName + "\n" +
+                            "📅 Date: " + date + "\n" +
+                            "⏰ Time: " + time + "\n" +
+                            "🆔 Appointment ID: " + appointmentId + "\n\n" +
+                            "🔗 Please login to the doctor panel to approve or reject this appointment.\n\n" +
+                            "Best Regards,\n" +
+                            "VETORA Team"
+            );
+            mailSender.send(message);
+            logger.info("✅ New appointment request email sent to doctor: {}", to);
+        } catch (Exception e) {
+            logger.error("❌ Failed to send new appointment request email: {}", e.getMessage());
+        }
+    }
+
+    // ✅ Appointment Approved (Pet Owner)
+    @Async
+    public void sendAppointmentApproved(String to, String ownerName, String petName,
+                                        String doctorName, LocalDate date, LocalTime time,
+                                        String notes) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("✅ VETORA - Appointment Approved!");
+            message.setText(
+                    "Dear " + ownerName + ",\n\n" +
+                            "✅ Your appointment has been approved by Dr. " + doctorName + "!\n\n" +
+                            "📋 Details:\n" +
+                            "🐕 Pet: " + petName + "\n" +
+                            "👨‍⚕️ Doctor: Dr. " + doctorName + "\n" +
+                            "📅 Date: " + date + "\n" +
+                            "⏰ Time: " + time + "\n" +
+                            (notes != null ? "📝 Notes: " + notes + "\n\n" : "\n") +
+                            "Please arrive 10 minutes before the appointment time.\n\n" +
+                            "Best Regards,\n" +
+                            "VETORA Team"
+            );
+            mailSender.send(message);
+            logger.info("✅ Appointment approved email sent to: {}", to);
+        } catch (Exception e) {
+            logger.error("❌ Failed to send appointment approved email: {}", e.getMessage());
+        }
+    }
+
+    // ✅ Appointment Rejected (Pet Owner)
+    @Async
+    public void sendAppointmentRejected(String to, String ownerName, String petName,
+                                        String doctorName, LocalDate date, LocalTime time,
+                                        String reason) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("❌ VETORA - Appointment Rejected");
+            message.setText(
+                    "Dear " + ownerName + ",\n\n" +
+                            "❌ Your appointment has been rejected by Dr. " + doctorName + ".\n\n" +
+                            "📋 Details:\n" +
+                            "🐕 Pet: " + petName + "\n" +
+                            "📅 Date: " + date + "\n" +
+                            "⏰ Time: " + time + "\n" +
+                            "Reason: " + (reason != null ? reason : "No reason provided") + "\n\n" +
+                            "Please try booking another date or time.\n\n" +
+                            "Best Regards,\n" +
+                            "VETORA Team"
+            );
+            mailSender.send(message);
+            logger.info("✅ Appointment rejected email sent to: {}", to);
+        } catch (Exception e) {
+            logger.error("❌ Failed to send appointment rejected email: {}", e.getMessage());
         }
     }
 }
