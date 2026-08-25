@@ -5,10 +5,12 @@ import com.vetora.dto.AppointmentResponseDTO;
 import com.vetora.entity.Appointment;
 import com.vetora.entity.Doctor;
 import com.vetora.entity.Pet;
+import com.vetora.entity.Reminder;
 import com.vetora.entity.User;
 import com.vetora.repository.AppointmentRepository;
 import com.vetora.repository.DoctorRepository;
 import com.vetora.repository.PetRepository;
+import com.vetora.repository.ReminderRepository;
 import com.vetora.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,17 +32,24 @@ public class AppointmentService {
     private final UserRepository userRepository;
     private final DoctorRepository doctorRepository;
     private final EmailService emailService;
+    private final ReminderRepository reminderRepository;
+    private final ReminderService reminderService;   // ✅ Add this
 
+    // ✅ Constructor - හරියට
     public AppointmentService(AppointmentRepository appointmentRepository,
                               PetRepository petRepository,
                               UserRepository userRepository,
                               DoctorRepository doctorRepository,
-                              EmailService emailService) {
+                              EmailService emailService,
+                              ReminderRepository reminderRepository,
+                              ReminderService reminderService) {   // ✅ Add this
         this.appointmentRepository = appointmentRepository;
         this.petRepository = petRepository;
         this.userRepository = userRepository;
         this.doctorRepository = doctorRepository;
         this.emailService = emailService;
+        this.reminderRepository = reminderRepository;
+        this.reminderService = reminderService;   // ✅ Add this
     }
 
     // ✅ Book Appointment (Pet Owner)
@@ -99,6 +108,19 @@ public class AppointmentService {
             logger.info("✅ Appointment booked and notifications sent");
         } catch (Exception e) {
             logger.error("❌ Failed to send appointment emails: {}", e.getMessage());
+        }
+
+        // ✅ AUTO CREATE APPOINTMENT REMINDER using ReminderService
+        try {
+            reminderService.createAutoAppointmentReminder(
+                    pet,
+                    doctor,
+                    request.getAppointmentDate().atTime(request.getAppointmentTime()),
+                    pet.getName(),
+                    doctor.getName()
+            );
+        } catch (Exception e) {
+            logger.error("❌ Failed to create auto reminder: {}", e.getMessage());
         }
 
         return convertToResponseDTO(savedAppointment);
@@ -196,6 +218,33 @@ public class AppointmentService {
 
         appointment.setStatus(Appointment.AppointmentStatus.CANCELLED);
         Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        // ✅ DELETE AUTO REMINDER
+        try {
+            reminderService.deleteAutoReminder(
+                    appointment.getPet().getId(),
+                    Reminder.ReminderType.APPOINTMENT,
+                    appointment.getPet().getName()
+            );
+        } catch (Exception e) {
+            logger.error("❌ Failed to delete auto reminder: {}", e.getMessage());
+        }
+
+        // ✅ Send cancellation email to doctor
+        try {
+            User doctor = appointment.getDoctor();
+            emailService.sendAppointmentCancelledToDoctor(
+                    doctor.getEmail(),
+                    doctor.getName(),
+                    appointment.getPet().getName(),
+                    owner.getName(),
+                    appointment.getAppointmentDate(),
+                    appointment.getAppointmentTime()
+            );
+            logger.info("✅ Appointment cancelled and notification sent to doctor");
+        } catch (Exception e) {
+            logger.error("❌ Failed to send cancellation email to doctor: {}", e.getMessage());
+        }
 
         return convertToResponseDTO(savedAppointment);
     }

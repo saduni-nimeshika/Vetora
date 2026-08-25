@@ -3,9 +3,11 @@ package com.vetora.service;
 import com.vetora.dto.VaccinationRequestDTO;
 import com.vetora.dto.VaccinationResponseDTO;
 import com.vetora.entity.Pet;
+import com.vetora.entity.Reminder;          // ✅ Add this
 import com.vetora.entity.User;
 import com.vetora.entity.Vaccination;
 import com.vetora.repository.PetRepository;
+import com.vetora.repository.ReminderRepository;  // ✅ Add this
 import com.vetora.repository.UserRepository;
 import com.vetora.repository.VaccinationRepository;
 import org.slf4j.Logger;
@@ -24,15 +26,23 @@ public class VaccinationService {
     private final VaccinationRepository vaccinationRepository;
     private final PetRepository petRepository;
     private final UserRepository userRepository;
+    private final ReminderRepository reminderRepository;   // ✅ Add this
+    private final ReminderService reminderService;         // ✅ Add this
 
+    // ✅ Constructor - හරියට
     public VaccinationService(VaccinationRepository vaccinationRepository,
                               PetRepository petRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              ReminderRepository reminderRepository,   // ✅ Add this
+                              ReminderService reminderService) {       // ✅ Add this
         this.vaccinationRepository = vaccinationRepository;
         this.petRepository = petRepository;
         this.userRepository = userRepository;
+        this.reminderRepository = reminderRepository;    // ✅ Add this
+        this.reminderService = reminderService;          // ✅ Add this
     }
 
+    // ✅ Add Vaccination - WITH AUTO REMINDER
     @Transactional
     public VaccinationResponseDTO addVaccination(VaccinationRequestDTO request, String doctorEmail) {
         User doctor = userRepository.findByEmail(doctorEmail)
@@ -52,9 +62,27 @@ public class VaccinationService {
         Vaccination savedVaccination = vaccinationRepository.save(vaccination);
         logger.info("✅ Vaccination added for pet: {}", pet.getName());
 
+        // ✅ AUTO CREATE VACCINATION REMINDER using ReminderService
+        if (request.getNextVaccinationDate() != null) {
+            try {
+                reminderService.createAutoVaccinationReminder(
+                        pet,
+                        doctor,
+                        request.getNextVaccinationDate().atStartOfDay(),
+                        pet.getName(),
+                        request.getVaccineName(),
+                        doctor.getName()
+                );
+                logger.info("✅ Auto vaccination reminder created for: {}", pet.getName());
+            } catch (Exception e) {
+                logger.error("❌ Failed to create vaccination reminder: {}", e.getMessage());
+            }
+        }
+
         return convertToResponseDTO(savedVaccination);
     }
 
+    // ✅ Update Vaccination
     @Transactional
     public VaccinationResponseDTO updateVaccination(Long vaccinationId, VaccinationRequestDTO request, String doctorEmail) {
         User doctor = userRepository.findByEmail(doctorEmail)
@@ -78,6 +106,7 @@ public class VaccinationService {
         return convertToResponseDTO(updatedVaccination);
     }
 
+    // ✅ Get Vaccinations by Pet (Doctor)
     public List<VaccinationResponseDTO> getVaccinationsByPet(Long petId) {
         List<Vaccination> vaccinations = vaccinationRepository.findByPetIdAndIsActiveTrueOrderByVaccinationDateDesc(petId);
         return vaccinations.stream()
@@ -85,6 +114,7 @@ public class VaccinationService {
                 .collect(Collectors.toList());
     }
 
+    // ✅ Get Vaccinations by Pet (Pet Owner)
     public List<VaccinationResponseDTO> getVaccinationsByPetForOwner(Long petId, String ownerEmail) {
         User owner = userRepository.findByEmail(ownerEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -99,6 +129,7 @@ public class VaccinationService {
         return getVaccinationsByPet(petId);
     }
 
+    // ✅ Get Upcoming Vaccinations
     public List<VaccinationResponseDTO> getUpcomingVaccinations() {
         LocalDate nextMonth = LocalDate.now().plusMonths(1);
         List<Vaccination> vaccinations = vaccinationRepository
@@ -108,6 +139,7 @@ public class VaccinationService {
                 .collect(Collectors.toList());
     }
 
+    // ✅ Delete Vaccination (Soft Delete)
     @Transactional
     public void deleteVaccination(Long vaccinationId, String doctorEmail) {
         User doctor = userRepository.findByEmail(doctorEmail)
@@ -125,6 +157,7 @@ public class VaccinationService {
         logger.info("✅ Vaccination deleted: {}", vaccinationId);
     }
 
+    // ✅ Convert Entity to Response DTO
     private VaccinationResponseDTO convertToResponseDTO(Vaccination vaccination) {
         return new VaccinationResponseDTO(
                 vaccination.getId(),

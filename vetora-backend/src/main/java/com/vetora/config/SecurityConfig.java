@@ -54,12 +54,14 @@ public class SecurityConfig {
 
                         // ✅ 📌 DOCTOR ONLY - General Endpoints
                         .requestMatchers("/api/v1/doctor/**").hasRole("DOCTOR")
+                        .requestMatchers("/api/v1/doctor/prescriptions/**").hasRole("DOCTOR")
 
                         // ✅ PET OWNER
                         .requestMatchers("/api/v1/owner/pets/**").hasRole("PET_OWNER")
                         .requestMatchers("/api/v1/owner/medical-records/**").hasRole("PET_OWNER")
                         .requestMatchers("/api/v1/owner/vaccinations/**").hasRole("PET_OWNER")
                         .requestMatchers("/api/v1/owner/appointments/**").hasRole("PET_OWNER")
+                        .requestMatchers("/api/v1/owner/prescriptions/**").hasRole("PET_OWNER")
 
                         .anyRequest().authenticated()
                 )

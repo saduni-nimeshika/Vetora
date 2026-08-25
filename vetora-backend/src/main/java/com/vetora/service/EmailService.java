@@ -293,4 +293,45 @@ public class EmailService {
             logger.error("❌ Failed to send appointment rejected email: {}", e.getMessage());
         }
     }
+    // ✅ Send Reminder Email
+    @Async
+    public void sendReminderEmail(String to, String subject, String messageText) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(messageText);
+            mailSender.send(message);
+            logger.info("✅ Reminder email sent to: {}", to);
+        } catch (Exception e) {
+            logger.error("❌ Failed to send reminder email to: {}", to, e);
+        }
+    }
+    // ✅ Appointment Cancelled (Doctor Only)
+    @Async
+    public void sendAppointmentCancelledToDoctor(String to, String doctorName,
+                                                 String petName, String ownerName,
+                                                 LocalDate date, LocalTime time) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("❌ VETORA - Appointment Cancelled");
+            message.setText(
+                    "Dear Dr. " + doctorName + ",\n\n" +
+                            "❌ An appointment has been cancelled by the pet owner.\n\n" +
+                            "📋 Cancelled Appointment Details:\n" +
+                            "🐕 Pet: " + petName + "\n" +
+                            "👤 Owner: " + ownerName + "\n" +
+                            "📅 Date: " + date + "\n" +
+                            "⏰ Time: " + time + "\n\n" +
+                            "The time slot is now available for other bookings.\n\n" +
+                            "Best Regards,\n" +
+                            "VETORA Team"
+            );
+            mailSender.send(message);
+            logger.info("✅ Appointment cancellation email sent to doctor: {}", to);
+        } catch (Exception e) {
+            logger.error("❌ Failed to send appointment cancellation email to doctor: {}", e.getMessage());
+        }
+    }
 }
