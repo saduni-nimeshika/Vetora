@@ -204,4 +204,23 @@ public class AppointmentController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
+    // ✅ Update Appointment Status (Doctor)
+    @PutMapping("/doctor/appointments/{appointmentId}/status")
+    public ResponseEntity<?> updateAppointmentStatus(@PathVariable Long appointmentId,
+                                                     @RequestParam String status) {
+        try {
+            String doctorEmail = getCurrentUserEmail();
+            AppointmentResponseDTO appointment = appointmentService.updateAppointmentStatus(appointmentId, doctorEmail, status);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("appointment", appointment);
+            response.put("message", "✅ Appointment status updated successfully!");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
 }

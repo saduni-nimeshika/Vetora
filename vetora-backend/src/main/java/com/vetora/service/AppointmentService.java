@@ -309,6 +309,45 @@ public class AppointmentService {
                 .map(this::convertToResponseDTO)
                 .collect(Collectors.toList());
     }
+    // ✅ UPDATE APPOINTMENT STATUS - මෙය Add කරන්න!
+    @Transactional
+    public AppointmentResponseDTO updateAppointmentStatus(Long appointmentId, String doctorEmail, String status) {
+        User doctor = userRepository.findByEmail(doctorEmail)
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Appointment not found"));
+
+        // Check if this doctor owns this appointment
+        if (!appointment.getDoctor().getId().equals(doctor.getId())) {
+            throw new RuntimeException("You can only update your own appointments!");
+        }
+
+        // Convert status string to enum
+        Appointment.AppointmentStatus newStatus;
+        try {
+            newStatus = Appointment.AppointmentStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid status: " + status + ". Allowed: APPROVED, REJECTED, COMPLETED");
+        }
+
+        // Check if appointment is cancelled
+        if (appointment.getStatus() == Appointment.AppointmentStatus.CANCELLED) {
+            throw new RuntimeException("Cannot update a cancelled appointment!");
+        }
+
+        // Check if appointment is already completed
+        if (appointment.getStatus() == Appointment.AppointmentStatus.COMPLETED) {
+            throw new RuntimeException("Appointment is already completed!");
+        }
+
+        appointment.setStatus(newStatus);
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        logger.info("✅ Appointment {} status updated to: {}", appointmentId, newStatus);
+
+        return convertToResponseDTO(savedAppointment);
+    }
 
     // ✅ Convert Entity to Response DTO
     private AppointmentResponseDTO convertToResponseDTO(Appointment appointment) {
