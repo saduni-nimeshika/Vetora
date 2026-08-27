@@ -5,12 +5,14 @@ import com.vetora.entity.User;
 import com.vetora.repository.DoctorRepository;
 import com.vetora.repository.UserRepository;
 import com.vetora.service.DoctorAvailabilityService;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,7 +46,6 @@ public class DoctorAvailabilityController {
                 .orElseThrow(() -> new RuntimeException("Doctor profile not found"));
     }
 
-    // ✅ 1. Set Doctor Availability
     @PutMapping("/availability")
     public ResponseEntity<?> setAvailability(@RequestBody Map<String, Object> request) {
         try {
@@ -75,12 +76,17 @@ public class DoctorAvailabilityController {
         }
     }
 
-    // ✅ 2. Get Doctor Availability (By Doctor ID)
+    // ✅ FIXED: @DateTimeFormat Annotation එක Add කරා!
     @GetMapping("/availability/{doctorId}")
-    public ResponseEntity<?> getAvailability(@PathVariable Long doctorId,
-                                             @RequestParam String startDate,
-                                             @RequestParam String endDate) {
+    public ResponseEntity<?> getAvailability(
+            @PathVariable Long doctorId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) String startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) String endDate) {
         try {
+            System.out.println("📤 Doctor ID: " + doctorId);
+            System.out.println("📤 Start Date: " + startDate);
+            System.out.println("📤 End Date: " + endDate);
+
             LocalDate start = LocalDate.parse(startDate);
             LocalDate end = LocalDate.parse(endDate);
 
@@ -88,17 +94,23 @@ public class DoctorAvailabilityController {
 
             return ResponseEntity.ok(availability);
 
+        } catch (DateTimeParseException e) {
+            System.err.println("❌ Date parse error: " + e.getMessage());
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Invalid date format! Please use yyyy-MM-dd (e.g., 2026-08-27)");
+            return ResponseEntity.badRequest().body(error);
         } catch (Exception e) {
+            System.err.println("❌ Error: " + e.getMessage());
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
 
-    // ✅ 3. Get Current Doctor's Availability
     @GetMapping("/availability/my-availability")
-    public ResponseEntity<?> getMyAvailability(@RequestParam String startDate,
-                                               @RequestParam String endDate) {
+    public ResponseEntity<?> getMyAvailability(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) String startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) String endDate) {
         try {
             Doctor doctor = getCurrentDoctor();
             LocalDate start = LocalDate.parse(startDate);
@@ -108,6 +120,10 @@ public class DoctorAvailabilityController {
 
             return ResponseEntity.ok(availability);
 
+        } catch (DateTimeParseException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Invalid date format! Please use yyyy-MM-dd");
+            return ResponseEntity.badRequest().body(error);
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
@@ -115,7 +131,6 @@ public class DoctorAvailabilityController {
         }
     }
 
-    // ✅ 4. Add Unavailable Date (Holiday/Leave)
     @PostMapping("/availability/unavailable")
     public ResponseEntity<?> addUnavailableDate(@RequestBody Map<String, Object> request) {
         try {
@@ -132,14 +147,17 @@ public class DoctorAvailabilityController {
 
             return ResponseEntity.ok(response);
 
-        } catch (RuntimeException e) {
+        } catch (DateTimeParseException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Invalid date format! Please use yyyy-MM-dd");
+            return ResponseEntity.badRequest().body(error);
+        } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
 
-    // ✅ 5. Add Special Available Date
     @PostMapping("/availability/special-available")
     public ResponseEntity<?> addSpecialAvailableDate(@RequestBody Map<String, Object> request) {
         try {
@@ -158,14 +176,17 @@ public class DoctorAvailabilityController {
 
             return ResponseEntity.ok(response);
 
-        } catch (RuntimeException e) {
+        } catch (DateTimeParseException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Invalid date format! Please use yyyy-MM-dd");
+            return ResponseEntity.badRequest().body(error);
+        } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
 
-    // ✅ 6. Remove Exception (Unavailable/Special Available)
     @DeleteMapping("/availability/exception/{exceptionId}")
     public ResponseEntity<?> removeException(@PathVariable Long exceptionId) {
         try {
@@ -176,18 +197,18 @@ public class DoctorAvailabilityController {
 
             return ResponseEntity.ok(response);
 
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }
     }
 
-    // ✅ 7. Check if a Slot is Available
     @GetMapping("/availability/check-slot")
-    public ResponseEntity<?> checkSlotAvailability(@RequestParam Long doctorId,
-                                                   @RequestParam String date,
-                                                   @RequestParam String time) {
+    public ResponseEntity<?> checkSlotAvailability(
+            @RequestParam Long doctorId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) String date,
+            @RequestParam String time) {
         try {
             LocalDate appointmentDate = LocalDate.parse(date);
             boolean isAvailable = availabilityService.isSlotAvailable(doctorId, appointmentDate, time);
@@ -201,6 +222,10 @@ public class DoctorAvailabilityController {
 
             return ResponseEntity.ok(response);
 
+        } catch (DateTimeParseException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Invalid date format! Please use yyyy-MM-dd");
+            return ResponseEntity.badRequest().body(error);
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());

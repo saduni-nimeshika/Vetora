@@ -16,32 +16,34 @@ import DoctorSearch from './pages/DoctorSearch';
 import AdminDashboard from './components/admin/AdminDashboard';
 import PendingDoctors from './components/admin/PendingDoctors';
 import UsersList from './components/admin/UsersList';
-import AllAppointments from './components/admin/AllAppointments';  // ✅ Add this!
+import AllAppointments from './components/admin/AllAppointments';
 
 // Doctor Components
 import DoctorDashboard from './components/doctor/DoctorDashboard';
 import DoctorAvailability from './components/doctor/DoctorAvailability';
 import DoctorAppointments from './components/doctor/DoctorAppointments';
 import MedicalRecordForm from './components/doctor/MedicalRecordForm';
+import DoctorProfileView from './pages/DoctorProfileView';  // ✅ Import
 
 // Pet Owner Components
 import OwnerDashboard from './components/owner/OwnerDashboard';
 import PetList from './components/owner/PetList';
 import AddPet from './components/owner/AddPet';
-import EditPet from './components/owner/EditPet';  // ✅ Add this!
+import EditPet from './components/owner/EditPet';
 import BookAppointment from './components/owner/BookAppointment';
 import AppointmentsList from './components/owner/AppointmentsList';
 import MedicalRecords from './components/owner/MedicalRecords';
 import VaccinationsList from './components/owner/VaccinationsList';
 import PrescriptionsList from './components/owner/PrescriptionsList';
+import PetProfile from './components/owner/PetProfile';
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen flex flex-col bg-ink-50">
           <Navbar />
-          <main className="container mx-auto px-4 py-8">
+          <main className="page-container py-6 sm:py-8 flex-1 w-full animate-fadeIn">
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
@@ -78,14 +80,13 @@ function App() {
                   <UsersList />
                 </PrivateRoute>
               } />
-              {/* ✅ Add Admin Appointments Route */}
               <Route path="/admin/appointments" element={
                 <PrivateRoute allowedRoles={['ADMIN']}>
                   <AllAppointments />
                 </PrivateRoute>
               } />
               
-              {/* Doctor Routes */}
+              {/* ========== DOCTOR ROUTES ========== */}
               <Route path="/doctor/dashboard" element={
                 <PrivateRoute allowedRoles={['DOCTOR']}>
                   <DoctorDashboard />
@@ -107,7 +108,14 @@ function App() {
                 </PrivateRoute>
               } />
               
-              {/* Pet Owner Routes */}
+              {/* ✅ DOCTOR PROFILE ROUTE - මෙතනට ගෙනියන්න! */}
+              <Route path="/doctor/profile" element={
+                <PrivateRoute allowedRoles={['DOCTOR']}>
+                  <DoctorProfileView />
+                </PrivateRoute>
+              } />
+              
+              {/* ========== PET OWNER ROUTES ========== */}
               <Route path="/owner/dashboard" element={
                 <PrivateRoute allowedRoles={['PET_OWNER']}>
                   <OwnerDashboard />
@@ -123,10 +131,14 @@ function App() {
                   <AddPet />
                 </PrivateRoute>
               } />
-              {/* ✅ Add Edit Pet Route */}
               <Route path="/owner/pets/edit/:id" element={
                 <PrivateRoute allowedRoles={['PET_OWNER']}>
                   <EditPet />
+                </PrivateRoute>
+              } />
+              <Route path="/owner/pets/:petId" element={
+                <PrivateRoute allowedRoles={['PET_OWNER']}>
+                  <PetProfile />
                 </PrivateRoute>
               } />
               <Route path="/owner/appointments" element={

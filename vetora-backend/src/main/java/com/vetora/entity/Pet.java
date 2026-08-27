@@ -16,23 +16,23 @@ public class Pet {
     @Column(nullable = false)
     private String name;
 
-    // Add this field
-    @Column(name = "profile_image")
-    private String profileImage;  // Image URL or Base64 String
+    // ✅ Column definition එක LONGTEXT එකට Change කරන්න!
+    @Column(name = "profile_image", columnDefinition = "LONGTEXT")
+    private String profileImage;
 
     @Column(nullable = false)
-    private String species;  // Dog, Cat, Bird, etc.
+    private String species;
 
     private String breed;
 
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
-    private String gender;  // Male, Female
+    private String gender;
 
     private String color;
 
-    private Double weight;  // in kg
+    private Double weight;
 
     @Column(columnDefinition = "TEXT")
     private String medicalHistory;
@@ -65,7 +65,7 @@ public class Pet {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
+    // ========== GETTERS AND SETTERS ==========
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -104,7 +104,8 @@ public class Pet {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
-    // Getters and Setters
+
+    // ✅ Profile Image Getters and Setters
     public String getProfileImage() { return profileImage; }
     public void setProfileImage(String profileImage) { this.profileImage = profileImage; }
 }

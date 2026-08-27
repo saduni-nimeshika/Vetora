@@ -11,15 +11,12 @@ import { districts, cities } from '../utils/sriLankaData';
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    // Basic Fields
     name: '',
     email: '',
     password: '',
     phone: '',
     address: '',
     role: 'PET_OWNER',
-    
-    // Doctor Specific Fields
     slvcRegistrationNumber: '',
     qualifications: '',
     specialisation: '',
@@ -40,7 +37,6 @@ const Register = () => {
   const navigate = useNavigate();
   const isDoctor = formData.role === 'DOCTOR';
 
-  // Update cities when district changes
   useEffect(() => {
     if (formData.district) {
       setCityOptions(cities[formData.district] || []);
@@ -59,7 +55,6 @@ const Register = () => {
     e.preventDefault();
     setLoading(true);
     
-    // Prepare data for API
     const submitData = {
       name: formData.name,
       email: formData.email,
@@ -90,7 +85,6 @@ const Register = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-emerald-100/50 py-8">
       <div className="w-full max-w-2xl animate-fadeIn">
-        {/* Brand */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-2xl shadow-2xl shadow-emerald-500/30 mb-3">
             <FaDog className="text-3xl text-white" />
@@ -99,10 +93,8 @@ const Register = () => {
           <p className="text-gray-500 text-sm">Join VETORA today</p>
         </div>
 
-        {/* Register Card */}
         <div className="bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
           <form onSubmit={handleSubmit}>
-            {/* Role Selection */}
             <div className="mb-4">
               <label className="block text-sm font-semibold text-gray-700 mb-1">I am a</label>
               <div className="grid grid-cols-2 gap-3">
@@ -131,7 +123,6 @@ const Register = () => {
               </div>
             </div>
 
-            {/* Basic Fields */}
             <div className="grid md:grid-cols-2 gap-3">
               <div className="mb-3">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
@@ -222,7 +213,6 @@ const Register = () => {
               </div>
             </div>
 
-            {/* Doctor Specific Fields */}
             {isDoctor && (
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -319,7 +309,6 @@ const Register = () => {
                   </div>
                 </div>
 
-                {/* ✅ DISTRICT DROPDOWN */}
                 <div className="grid md:grid-cols-2 gap-3">
                   <div className="mb-3">
                     <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -341,7 +330,7 @@ const Register = () => {
                     </select>
                   </div>
                   
-                  {/* ✅ CITY DROPDOWN - District එක අනුව Update වෙනවා */}
+                  {/* ✅ FIXED: City Dropdown - No disabled attribute */}
                   <div className="mb-3">
                     <label className="block text-sm font-semibold text-gray-700 mb-1">
                       <FaMapPin className="inline mr-1 text-emerald-600" />
@@ -351,10 +340,7 @@ const Register = () => {
                       name="city"
                       value={formData.city}
                       onChange={handleChange}
-                      disabled={!formData.district}
-                      className={`w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all ${
-                        formData.district ? 'bg-gray-50' : 'bg-gray-100 cursor-not-allowed'
-                      }`}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                     >
                       <option value="">
                         {formData.district ? 'Select City' : 'Select District First'}

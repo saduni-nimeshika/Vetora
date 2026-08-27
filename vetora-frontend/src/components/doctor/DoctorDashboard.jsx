@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { FaCalendar, FaClock, FaCheckCircle, FaUserMd, FaPaw, FaStethoscope } from 'react-icons/fa';
+import { 
+  FaCalendar, FaClock, FaCheckCircle, FaUserMd, 
+  FaPaw, FaStethoscope, FaUser 
+} from 'react-icons/fa';
 
 const DoctorDashboard = () => {
   const { user } = useAuth();
@@ -54,10 +57,28 @@ const DoctorDashboard = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">
-        👨‍⚕️ Welcome, Dr. {user?.name}!
-      </h1>
+      {/* ✅ Header with Profile Button */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">
+          👨‍⚕️ Welcome, Dr. {user?.name}!
+        </h1>
+        <div className="flex gap-3 mt-4 md:mt-0">
+          <Link 
+            to="/doctor/profile" 
+            className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
+          >
+            <FaUser /> My Profile
+          </Link>
+          <Link 
+            to="/doctor/availability" 
+            className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
+          >
+            <FaClock /> Set Availability
+          </Link>
+        </div>
+      </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition">
           <FaCalendar className="text-2xl text-blue-600 mx-auto mb-1" />
@@ -81,16 +102,26 @@ const DoctorDashboard = () => {
         </div>
       </div>
 
+      {/* Quick Actions */}
       <div className="grid md:grid-cols-3 gap-4 mb-8">
-        <Link to="/doctor/appointments" className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-blue-500">
+        <Link 
+          to="/doctor/appointments" 
+          className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-blue-500"
+        >
           <h3 className="font-semibold text-gray-800">📅 Appointments</h3>
           <p className="text-sm text-gray-600">Manage your schedule</p>
         </Link>
-        <Link to="/doctor/availability" className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-emerald-500">
+        <Link 
+          to="/doctor/availability" 
+          className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-emerald-500"
+        >
           <h3 className="font-semibold text-gray-800">⏰ Availability</h3>
           <p className="text-sm text-gray-600">Set your working hours</p>
         </Link>
-        <Link to="/doctor/medical-record" className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-purple-500">
+        <Link 
+          to="/doctor/medical-record" 
+          className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-purple-500"
+        >
           <h3 className="font-semibold text-gray-800">💊 Medical Records</h3>
           <p className="text-sm text-gray-600">Add patient records</p>
         </Link>
