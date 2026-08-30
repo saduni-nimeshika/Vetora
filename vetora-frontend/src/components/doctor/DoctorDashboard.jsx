@@ -4,7 +4,7 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { 
   FaCalendar, FaClock, FaCheckCircle, FaUserMd, 
-  FaPaw, FaStethoscope, FaUser 
+  FaPaw, FaStethoscope, FaUser, FaBell, FaSyringe
 } from 'react-icons/fa';
 
 const DoctorDashboard = () => {
@@ -13,10 +13,11 @@ const DoctorDashboard = () => {
     appointments: 0,
     pending: 0,
     completed: 0,
-    patients: 0
+    reminders: 0
   });
   const [loading, setLoading] = useState(true);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [upcomingReminders, setUpcomingReminders] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -25,21 +26,27 @@ const DoctorDashboard = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [appointmentsRes, pendingRes] = await Promise.all([
+      const [appointmentsRes, pendingRes, remindersRes] = await Promise.all([
         api.get('/api/v1/doctor/appointments'),
-        api.get('/api/v1/doctor/appointments/pending')
+        api.get('/api/v1/doctor/appointments/pending'),
+        api.get('/api/v1/doctor/reminders/my-reminders').catch(() => ({ data: { reminders: [] } }))
       ]);
 
       const allAppointments = appointmentsRes.data?.appointments || [];
       const pendingAppointments = pendingRes.data?.appointments || [];
+      const allReminders = remindersRes.data?.reminders || [];
+      const pendingReminders = allReminders
+        .filter((r) => !r.isSent)
+        .sort((a, b) => new Date(a.reminderDateTime) - new Date(b.reminderDateTime));
 
       setStats({
         appointments: allAppointments.length,
         pending: pendingAppointments.length,
         completed: allAppointments.filter(a => a.status === 'COMPLETED').length,
-        patients: 0
+        reminders: pendingReminders.length
       });
       setUpcomingAppointments(pendingAppointments.slice(0, 5));
+      setUpcomingReminders(pendingReminders.slice(0, 5));
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -50,29 +57,23 @@ const DoctorDashboard = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="spinner w-12 h-12"></div>
       </div>
     );
   }
 
   return (
-    <div>
-      {/* ✅ Header with Profile Button */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">
+    <div className="animate-fadeIn">
+      {/* Header with Profile Button */}
+      <div className="page-header">
+        <h1 className="page-title">
           👨‍⚕️ Welcome, Dr. {user?.name}!
         </h1>
-        <div className="flex gap-3 mt-4 md:mt-0">
-          <Link 
-            to="/doctor/profile" 
-            className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
-          >
+        <div className="flex gap-3">
+          <Link to="/doctor/profile" className="btn-secondary">
             <FaUser /> My Profile
           </Link>
-          <Link 
-            to="/doctor/availability" 
-            className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
-          >
+          <Link to="/doctor/availability" className="btn-primary">
             <FaClock /> Set Availability
           </Link>
         </div>
@@ -80,74 +81,106 @@ const DoctorDashboard = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition">
-          <FaCalendar className="text-2xl text-blue-600 mx-auto mb-1" />
-          <h3 className="text-xl font-bold">{stats.appointments}</h3>
-          <p className="text-xs text-gray-600">Total</p>
+        <div className="stat-card">
+          <span className="stat-icon bg-blue-100 text-blue-600"><FaCalendar /></span>
+          <div>
+            <h3 className="stat-value">{stats.appointments}</h3>
+            <p className="stat-label">Total</p>
+          </div>
         </div>
-        <div className="bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition">
-          <FaClock className="text-2xl text-orange-600 mx-auto mb-1" />
-          <h3 className="text-xl font-bold text-orange-600">{stats.pending}</h3>
-          <p className="text-xs text-gray-600">Pending</p>
+        <div className="stat-card">
+          <span className="stat-icon bg-amber-100 text-amber-600"><FaClock /></span>
+          <div>
+            <h3 className="stat-value">{stats.pending}</h3>
+            <p className="stat-label">Pending</p>
+          </div>
         </div>
-        <div className="bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition">
-          <FaCheckCircle className="text-2xl text-emerald-600 mx-auto mb-1" />
-          <h3 className="text-xl font-bold">{stats.completed}</h3>
-          <p className="text-xs text-gray-600">Completed</p>
+        <div className="stat-card">
+          <span className="stat-icon bg-emerald-100 text-emerald-600"><FaCheckCircle /></span>
+          <div>
+            <h3 className="stat-value">{stats.completed}</h3>
+            <p className="stat-label">Completed</p>
+          </div>
         </div>
-        <div className="bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition">
-          <FaUserMd className="text-2xl text-purple-600 mx-auto mb-1" />
-          <h3 className="text-xl font-bold">{stats.patients}</h3>
-          <p className="text-xs text-gray-600">Patients</p>
-        </div>
+        <Link to="/doctor/reminders" className="stat-card">
+          <span className="stat-icon bg-pink-100 text-pink-600"><FaBell /></span>
+          <div>
+            <h3 className="stat-value">{stats.reminders}</h3>
+            <p className="stat-label">Reminders</p>
+          </div>
+        </Link>
       </div>
 
       {/* Quick Actions */}
-      <div className="grid md:grid-cols-3 gap-4 mb-8">
-        <Link 
-          to="/doctor/appointments" 
-          className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-blue-500"
-        >
-          <h3 className="font-semibold text-gray-800">📅 Appointments</h3>
-          <p className="text-sm text-gray-600">Manage your schedule</p>
+      <div className="grid md:grid-cols-4 gap-4 mb-8">
+        <Link to="/doctor/appointments" className="card-hover border-l-4 border-blue-500">
+          <h3 className="font-semibold text-ink-800">📅 Appointments</h3>
+          <p className="text-sm text-ink-500">Manage your schedule</p>
         </Link>
-        <Link 
-          to="/doctor/availability" 
-          className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-emerald-500"
-        >
-          <h3 className="font-semibold text-gray-800">⏰ Availability</h3>
-          <p className="text-sm text-gray-600">Set your working hours</p>
+        <Link to="/doctor/availability" className="card-hover border-l-4 border-emerald-500">
+          <h3 className="font-semibold text-ink-800">⏰ Availability</h3>
+          <p className="text-sm text-ink-500">Set your working hours</p>
         </Link>
-        <Link 
-          to="/doctor/medical-record" 
-          className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-purple-500"
-        >
-          <h3 className="font-semibold text-gray-800">💊 Medical Records</h3>
-          <p className="text-sm text-gray-600">Add patient records</p>
+        <Link to="/doctor/medical-record" className="card-hover border-l-4 border-purple-500">
+          <h3 className="font-semibold text-ink-800">💊 Medical Records</h3>
+          <p className="text-sm text-ink-500">Add patient records</p>
+        </Link>
+        <Link to="/doctor/reminders" className="card-hover border-l-4 border-pink-500">
+          <h3 className="font-semibold text-ink-800">🔔 Reminders</h3>
+          <p className="text-sm text-ink-500">Create patient reminders</p>
         </Link>
       </div>
 
-      {/* Upcoming Appointments */}
-      {upcomingAppointments.length > 0 && (
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">📅 Upcoming Appointments</h3>
-          <div className="space-y-2">
-            {upcomingAppointments.map((appointment) => (
-              <div key={appointment.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-800">{appointment.petName}</p>
-                  <p className="text-sm text-gray-600">
-                    {appointment.appointmentDate} at {appointment.appointmentTime}
-                  </p>
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Upcoming Appointments */}
+        <div className="card">
+          <h3 className="section-title">📅 Upcoming Appointments</h3>
+          {upcomingAppointments.length === 0 ? (
+            <p className="text-ink-400 text-center py-8">No pending appointments</p>
+          ) : (
+            <div className="space-y-2">
+              {upcomingAppointments.map((appointment) => (
+                <div key={appointment.id} className="flex justify-between items-center p-3 bg-ink-50 rounded-xl">
+                  <div>
+                    <p className="font-medium text-ink-800">{appointment.petName}</p>
+                    <p className="text-sm text-ink-500">
+                      {appointment.appointmentDate} at {appointment.appointmentTime}
+                    </p>
+                  </div>
+                  <span className="badge-warning">{appointment.status}</span>
                 </div>
-                <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
-                  {appointment.status}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Upcoming Reminders */}
+        <div className="card">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="section-title mb-0">🔔 Upcoming Reminders</h3>
+            <Link to="/doctor/reminders" className="text-sm text-primary-600 hover:underline font-medium">
+              Manage
+            </Link>
+          </div>
+          {upcomingReminders.length === 0 ? (
+            <p className="text-ink-400 text-center py-8">No pending reminders</p>
+          ) : (
+            <div className="space-y-2">
+              {upcomingReminders.map((r) => (
+                <div key={r.id} className="flex justify-between items-center p-3 bg-ink-50 rounded-xl">
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink-800 truncate">{r.petName} — {r.message}</p>
+                    <p className="text-sm text-ink-500">
+                      {new Date(r.reminderDateTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </p>
+                  </div>
+                  <span className="badge-info shrink-0">{r.type}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

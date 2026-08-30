@@ -35,12 +35,27 @@ const OwnerDashboard = () => {
       const pets = petsRes.data?.pets || [];
       const appointments = appointmentsRes.data?.appointments || [];
 
+      // Reminders are fetched per-pet, so tally them across all pets
+      let reminderCount = 0;
+      let allReminders = [];
+      if (pets.length > 0) {
+        const reminderResults = await Promise.all(
+          pets.map((p) =>
+            api.get(`/api/v1/owner/reminders/upcoming/${p.id}`)
+              .then((res) => (res.data?.reminders || []).map((r) => ({ ...r, petName: r.petName || p.name })))
+              .catch(() => [])
+          )
+        );
+        allReminders = reminderResults.flat();
+        reminderCount = allReminders.length;
+      }
+
       setStats({
         pets: pets.length,
         appointments: appointments.length,
         records: 0,
         prescriptions: 0,
-        reminders: 0
+        reminders: reminderCount
       });
       
       setRecentPets(pets.slice(0, 3));
@@ -109,11 +124,11 @@ const OwnerDashboard = () => {
           <h3 className="text-2xl font-bold text-gray-800">{stats.prescriptions}</h3>
           <p className="text-xs text-gray-500">Prescriptions</p>
         </div>
-        <div className="bg-white rounded-2xl shadow-lg p-4 text-center border-t-4 border-orange-500">
+        <Link to="/owner/pets" className="bg-white rounded-2xl shadow-lg p-4 text-center hover:shadow-xl transition border-t-4 border-orange-500">
           <div className="text-2xl text-orange-600 mx-auto mb-1">⏰</div>
           <h3 className="text-2xl font-bold text-gray-800">{stats.reminders}</h3>
           <p className="text-xs text-gray-500">Reminders</p>
-        </div>
+        </Link>
       </div>
 
       {/* Quick Actions */}

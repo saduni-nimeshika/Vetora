@@ -6,7 +6,7 @@ import {
   FaPaw, FaCalendar, FaFileMedical, FaSyringe, FaPrescription,
   FaWeight, FaRuler, FaHeart, FaStethoscope, FaClipboardList,
   FaChartLine, FaUserMd, FaClock, FaCheckCircle, FaTimesCircle,
-  FaArrowLeft, FaEdit, FaPhone, FaEnvelope, FaMapMarkerAlt
+  FaArrowLeft, FaEdit, FaPhone, FaEnvelope, FaMapMarkerAlt, FaBell
 } from 'react-icons/fa';
 import { Line } from 'react-chartjs-2';
 import {
@@ -38,6 +38,7 @@ const PetProfile = () => {
   const [medicalRecords, setMedicalRecords] = useState([]);
   const [vaccinations, setVaccinations] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [reminders, setReminders] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
@@ -47,17 +48,21 @@ const PetProfile = () => {
   const fetchPetData = async () => {
     try {
       setLoading(true);
-      const [petRes, recordsRes, vaccRes, appRes] = await Promise.all([
+      const [petRes, recordsRes, vaccRes, appRes, remRes] = await Promise.all([
         api.get(`/api/v1/owner/pets/${petId}`),
         api.get(`/api/v1/owner/medical-records/pet/${petId}`),
         api.get(`/api/v1/owner/vaccinations/pet/${petId}`),
-        api.get(`/api/v1/owner/appointments`)
+        api.get(`/api/v1/owner/appointments`),
+        api.get(`/api/v1/owner/reminders/pet/${petId}`).catch(() => ({ data: { reminders: [] } }))
       ]);
       
       setPet(petRes.data);
       setMedicalRecords(recordsRes.data?.records || []);
       setVaccinations(vaccRes.data?.vaccinations || []);
       setAppointments(appRes.data?.appointments || []);
+      const remList = (remRes.data?.reminders || [])
+        .sort((a, b) => new Date(a.reminderDateTime) - new Date(b.reminderDateTime));
+      setReminders(remList);
     } catch (error) {
       console.error('Error fetching pet data:', error);
     } finally {
@@ -196,6 +201,19 @@ const PetProfile = () => {
                 }`}
               >
                 <FaCalendar /> Appointments
+              </button>
+              <button
+                onClick={() => setActiveTab('reminders')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition ${
+                  activeTab === 'reminders' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <FaBell /> Reminders
+                {reminders.filter(r => !r.isSent).length > 0 && (
+                  <span className="ml-auto bg-pink-100 text-pink-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {reminders.filter(r => !r.isSent).length}
+                  </span>
+                )}
               </button>
             </nav>
 
@@ -368,6 +386,44 @@ const PetProfile = () => {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(app.status)}`}>
                           {getStatusIcon(app.status)}
                           {app.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Reminders Tab */}
+          {activeTab === 'reminders' && (
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <FaBell className="text-emerald-600" />
+                Reminders
+              </h3>
+              {reminders.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No reminders set for this pet</p>
+              ) : (
+                <div className="space-y-4">
+                  {reminders.map((r) => (
+                    <div key={r.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-semibold text-gray-800">{r.message}</h4>
+                          <p className="text-sm text-gray-500 mt-1">
+                            📅 {new Date(r.reminderDateTime).toLocaleString(undefined, {
+                              weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            })}
+                          </p>
+                          {r.doctorName && (
+                            <p className="text-sm text-gray-500 mt-1">👨‍⚕️ Dr. {r.doctorName}</p>
+                          )}
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          r.isSent ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                        }`}>
+                          {r.isSent ? '✅ Sent' : '⏰ Pending'}
                         </span>
                       </div>
                     </div>

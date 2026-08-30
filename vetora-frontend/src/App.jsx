@@ -23,6 +23,7 @@ import DoctorDashboard from './components/doctor/DoctorDashboard';
 import DoctorAvailability from './components/doctor/DoctorAvailability';
 import DoctorAppointments from './components/doctor/DoctorAppointments';
 import MedicalRecordForm from './components/doctor/MedicalRecordForm';
+import RemindersManager from './components/doctor/RemindersManager';
 import DoctorProfileView from './pages/DoctorProfileView';  // ✅ Import
 
 // Pet Owner Components
@@ -105,6 +106,11 @@ function App() {
               <Route path="/doctor/medical-record" element={
                 <PrivateRoute allowedRoles={['DOCTOR']}>
                   <MedicalRecordForm />
+                </PrivateRoute>
+              } />
+              <Route path="/doctor/reminders" element={
+                <PrivateRoute allowedRoles={['DOCTOR']}>
+                  <RemindersManager />
                 </PrivateRoute>
               } />
               

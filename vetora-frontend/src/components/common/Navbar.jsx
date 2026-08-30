@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   FaPaw, FaUser, FaSignOutAlt, FaBars, FaTimes, FaChevronDown,
   FaHome, FaCalendarAlt, FaClock, FaUserMd, FaUsers, FaClipboardList,
-  FaUserClock, FaSearch,
+  FaUserClock, FaSearch, FaBell,
 } from 'react-icons/fa';
 
 const roleNavLinks = {
@@ -18,6 +18,7 @@ const roleNavLinks = {
     { name: 'Dashboard', path: '/doctor/dashboard', icon: <FaHome /> },
     { name: 'Appointments', path: '/doctor/appointments', icon: <FaCalendarAlt /> },
     { name: 'Availability', path: '/doctor/availability', icon: <FaClock /> },
+    { name: 'Reminders', path: '/doctor/reminders', icon: <FaBell /> },
     { name: 'My Profile', path: '/doctor/profile', icon: <FaUserMd /> },
   ],
   PET_OWNER: [
