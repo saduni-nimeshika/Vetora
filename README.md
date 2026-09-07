@@ -1,3 +1,4 @@
+![Uploading Untitled Diagram.drawio (3).png…]()
 # 🐾 Vetora - Veterinary Appointment & Pet Healthcare Management System
 
 [![Status](https://img.shields.io/badge/Status-In%20Progress-yellow.svg)](#)
