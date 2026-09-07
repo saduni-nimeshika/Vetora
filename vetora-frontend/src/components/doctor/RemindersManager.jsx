@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import {
   FaBell, FaPlus, FaTrash, FaSyringe, FaPills, FaCalendarCheck,
-  FaClock, FaCheckCircle, FaTimes,
+  FaClock, FaCheckCircle, FaTimes, FaPaw, FaArrowLeft,
 } from 'react-icons/fa';
 
 const typeConfig = {
@@ -13,12 +14,15 @@ const typeConfig = {
 };
 
 const RemindersManager = () => {
+  const [searchParams] = useSearchParams();
+  const prefilledPetId = searchParams.get('petId') || '';
+  const prefilledPetName = searchParams.get('petName') || '';
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(!!prefilledPetId);
   const [formData, setFormData] = useState({
-    petId: '',
+    petId: prefilledPetId,
     type: 'VACCINATION',
     reminderDateTime: '',
     message: '',
@@ -46,7 +50,7 @@ const RemindersManager = () => {
 
   const resetForm = () => {
     setFormData({
-      petId: '',
+      petId: prefilledPetId,
       type: 'VACCINATION',
       reminderDateTime: '',
       message: '',
@@ -122,18 +126,32 @@ const RemindersManager = () => {
           </h2>
           <form onSubmit={handleSubmit}>
             <div className="grid sm:grid-cols-2 gap-4">
-              <div className="form-group">
-                <label className="form-label">Pet ID</label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={formData.petId}
-                  onChange={(e) => setFormData({ ...formData, petId: e.target.value })}
-                  placeholder="e.g. 12"
-                  required
-                />
-                <p className="form-hint">Find the Pet ID on the pet's profile page</p>
-              </div>
+              {prefilledPetName ? (
+                <div className="sm:col-span-2 flex items-center gap-3 bg-primary-50 border border-primary-200 rounded-xl p-3">
+                  <span className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 shrink-0">
+                    <FaPaw />
+                  </span>
+                  <div>
+                    <p className="text-xs text-primary-600 font-medium">Creating reminder for</p>
+                    <p className="font-semibold text-ink-800">{prefilledPetName}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label className="form-label">Pet ID</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={formData.petId}
+                    onChange={(e) => setFormData({ ...formData, petId: e.target.value })}
+                    placeholder="e.g. 12"
+                    required
+                  />
+                  <p className="form-hint">
+                    Tip: open a pet from <Link to="/doctor/patients" className="text-primary-600 hover:underline inline-flex items-center gap-1"><FaArrowLeft className="text-[10px]" />My Patients</Link> to skip this
+                  </p>
+                </div>
+              )}
 
               <div className="form-group">
                 <label className="form-label">Reminder Type</label>
@@ -262,3 +280,4 @@ const RemindersManager = () => {
 };
 
 export default RemindersManager;
+

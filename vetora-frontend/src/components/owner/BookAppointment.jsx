@@ -1,22 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { FaCalendar, FaArrowLeft } from 'react-icons/fa';
+import { FaCalendar, FaArrowLeft, FaUserMd, FaExchangeAlt, FaPaw } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 const BookAppointment = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedDoctorId = searchParams.get('doctorId');
+  const preselectedDoctorName = searchParams.get('doctorName');
+  const preselectedPetId = searchParams.get('petId');
+
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
   const [pets, setPets] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [showDoctorPicker, setShowDoctorPicker] = useState(!preselectedDoctorId);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [formData, setFormData] = useState({
-    petId: '',
+    petId: preselectedPetId || '',
     doctorId: '',
     appointmentDate: '',
     appointmentTime: '',
@@ -30,15 +37,31 @@ const BookAppointment = () => {
 
   const fetchData = async () => {
     try {
+      setDataLoading(true);
       const [petsRes, doctorsRes] = await Promise.all([
         api.get('/api/v1/owner/pets'),
         api.get('/api/v1/search/doctors')
       ]);
-      setPets(petsRes.data?.pets || []);
-      setDoctors(doctorsRes.data?.doctors || []);
+      const petsList = petsRes.data?.pets || [];
+      const doctorsList = doctorsRes.data?.doctors || [];
+      setPets(petsList);
+      setDoctors(doctorsList);
+
+      // If we arrived from a doctor's profile page (?doctorId=...), preselect them
+      if (preselectedDoctorId) {
+        const match = doctorsList.find((d) => String(d.user?.id) === String(preselectedDoctorId));
+        if (match) {
+          handleDoctorSelect(match);
+        } else {
+          toast.error('That doctor is no longer available for booking');
+          setShowDoctorPicker(true);
+        }
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load data');
+    } finally {
+      setDataLoading(false);
     }
   };
 
@@ -46,23 +69,18 @@ const BookAppointment = () => {
     if (selectedDoctor && selectedDate) {
       fetchAvailableSlots();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDoctor, selectedDate]);
 
   const fetchAvailableSlots = async () => {
     try {
       const doctorId = selectedDoctor.id;
       const formattedDate = selectedDate;
-      
-      console.log('📤 Doctor ID:', doctorId);
-      console.log('📤 Date:', formattedDate);
-      
       const url = `/api/v1/doctor/availability/${doctorId}?startDate=${formattedDate}&endDate=${formattedDate}`;
-      
       const response = await api.get(url);
-      
       const availability = response.data?.availability || {};
       const dayData = availability[formattedDate];
-      
+
       if (dayData?.available && dayData?.slots) {
         setAvailableSlots(dayData.slots);
       } else {
@@ -75,32 +93,41 @@ const BookAppointment = () => {
   };
 
   const handleDoctorSelect = (doctor) => {
-    const doctorProfileId = doctor.id;
     const userId = doctor.user?.id;
-    
     setSelectedDoctor(doctor);
     setSelectedDate('');
     setSelectedTime('');
     setAvailableSlots([]);
-    setFormData({ 
-      ...formData, 
+    setShowDoctorPicker(false);
+    setFormData((prev) => ({
+      ...prev,
       doctorId: userId,
       appointmentDate: '',
       appointmentTime: ''
-    });
+    }));
+  };
+
+  const toISODate = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
   const handleDateSelect = (date) => {
-    const formattedDate = date.toISOString().split('T')[0];
+    const formattedDate = toISODate(date);
     setSelectedDate(formattedDate);
     setSelectedTime('');
     setFormData({ ...formData, appointmentDate: formattedDate, appointmentTime: '' });
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
+    if (!formData.petId || !formData.doctorId || !formData.appointmentDate || !formData.appointmentTime) {
+      toast.error('Please complete all required fields');
+      return;
+    }
     setLoading(true);
-    
     try {
       const data = {
         petId: parseInt(formData.petId),
@@ -109,27 +136,19 @@ const BookAppointment = () => {
         appointmentTime: formData.appointmentTime,
         notes: formData.notes || ''
       };
-
       await api.post('/api/v1/owner/appointments', data);
-      
       toast.success('✅ Appointment booked successfully!');
       navigate('/owner/appointments');
     } catch (error) {
       console.error('Error:', error);
-      toast.error('❌ Failed to book appointment');
+      toast.error(error.response?.data?.error || '❌ Failed to book appointment');
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ CALENDAR FUNCTIONS - FIXED!
-  const getDaysInMonth = (year, month) => {
-    return new Date(year, month + 1, 0).getDate();
-  };
-
-  const getFirstDayOfMonth = (year, month) => {
-    return new Date(year, month, 1).getDay();
-  };
+  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
   const handleMonthChange = (offset) => {
     const newMonth = new Date(currentMonth);
@@ -137,114 +156,144 @@ const BookAppointment = () => {
     setCurrentMonth(newMonth);
   };
 
-  // ✅ RENDER CALENDAR - FIXED!
   const renderCalendar = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const daysInMonth = getDaysInMonth(year, month);
     const firstDay = getFirstDayOfMonth(year, month);
     const today = new Date();
-
     const days = [];
-    
-    // Empty cells for first week
+
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-10 w-10"></div>);
+      days.push(<div key={`empty-${i}`} className="h-10 w-10" />);
     }
 
-    // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const isToday = date.toDateString() === today.toDateString();
       const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const isSelected = selectedDate === date.toISOString().split('T')[0];
+      const isSelected = selectedDate === toISODate(date);
       const isAvailable = !isPast && selectedDoctor;
 
       days.push(
         <button
           key={day}
+          type="button"
           onClick={() => !isPast && isAvailable && handleDateSelect(date)}
-          disabled={isPast || !isAvailable || !selectedDoctor}
+          disabled={isPast || !isAvailable}
           className={`h-10 w-10 rounded-full text-sm font-medium transition-all duration-200 flex items-center justify-center
-            ${isPast ? 'text-gray-300 cursor-not-allowed bg-gray-100' : ''}
-            ${!isPast && !selectedDoctor ? 'text-gray-400 cursor-not-allowed' : ''}
-            ${isSelected ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' : ''}
-            ${!isPast && !isSelected && isAvailable ? 'hover:bg-emerald-100 text-gray-700 cursor-pointer' : ''}
-            ${!isPast && !isSelected && !isAvailable && selectedDoctor ? 'text-gray-300 cursor-not-allowed' : ''}
-            ${isToday && !isSelected ? 'border-2 border-emerald-500' : ''}
+            ${isPast ? 'text-ink-300 cursor-not-allowed bg-ink-50' : ''}
+            ${!isPast && !selectedDoctor ? 'text-ink-300 cursor-not-allowed' : ''}
+            ${isSelected ? 'bg-primary-600 text-white shadow-glow' : ''}
+            ${!isPast && !isSelected && isAvailable ? 'hover:bg-primary-100 text-ink-700 cursor-pointer' : ''}
+            ${isToday && !isSelected ? 'border-2 border-primary-500' : ''}
           `}
         >
           {day}
         </button>
       );
     }
-
     return days;
   };
 
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                       'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+
+  if (dataLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="spinner w-12 h-12" />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto animate-slideUp">
       <div className="flex items-center gap-4 mb-6">
-        <Link to="/owner/appointments" className="text-gray-600 hover:text-gray-800">
+        <Link to="/owner/appointments" className="text-ink-500 hover:text-ink-800">
           <FaArrowLeft />
         </Link>
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <FaCalendar className="text-emerald-600" />
-          Book Appointment
+        <h1 className="page-title mb-0">
+          <FaCalendar className="text-primary-600" /> Book Appointment
         </h1>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Column - Form */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="card">
             <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select Pet *</label>
-                <select
-                  value={formData.petId}
-                  onChange={(e) => setFormData({ ...formData, petId: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  required
-                >
-                  <option value="">Select a pet</option>
-                  {pets.map((pet) => (
-                    <option key={pet.id} value={pet.id}>{pet.name}</option>
-                  ))}
-                </select>
+              <div className="form-group">
+                <label className="form-label">Select Pet *</label>
+                <div className="input-icon-wrap">
+                  <FaPaw className="field-icon" />
+                  <select
+                    value={formData.petId}
+                    onChange={(e) => setFormData({ ...formData, petId: e.target.value })}
+                    className="select-field pl-11"
+                    required
+                  >
+                    <option value="">Select a pet</option>
+                    {pets.map((pet) => (
+                      <option key={pet.id} value={pet.id}>{pet.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select Doctor *</label>
-                <select
-                  value={formData.doctorId}
-                  onChange={(e) => {
-                    const doctor = doctors.find(d => d.id === parseInt(e.target.value));
-                    if (doctor) handleDoctorSelect(doctor);
-                  }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  required
-                >
-                  <option value="">Select a doctor</option>
-                  {doctors.map((doctor) => (
-                    <option key={doctor.id} value={doctor.id}>
-                      Dr. {doctor.user?.name || doctor.name} - {doctor.specialisation || 'General'}
-                    </option>
-                  ))}
-                </select>
+              <div className="form-group">
+                <label className="form-label">Doctor *</label>
+                {selectedDoctor && !showDoctorPicker ? (
+                  <div className="flex items-center gap-3 bg-primary-50 border border-primary-200 rounded-xl p-3">
+                    <span className="avatar w-10 h-10 bg-primary-100 text-primary-700 shrink-0">
+                      <FaUserMd />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-ink-800 truncate">
+                        Dr. {selectedDoctor.user?.name || preselectedDoctorName}
+                      </p>
+                      <p className="text-xs text-ink-500 truncate">{selectedDoctor.specialisation}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDoctorPicker(true)}
+                      className="text-xs font-medium text-primary-600 hover:underline flex items-center gap-1 shrink-0"
+                    >
+                      <FaExchangeAlt className="text-[10px]" /> Change
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={formData.doctorId}
+                    onChange={(e) => {
+                      const doctor = doctors.find((d) => String(d.user?.id) === e.target.value);
+                      if (doctor) handleDoctorSelect(doctor);
+                    }}
+                    className="select-field"
+                    required
+                  >
+                    <option value="">Select a doctor</option>
+                    {doctors.map((doctor) => (
+                      <option key={doctor.id} value={doctor.user?.id}>
+                        Dr. {doctor.user?.name} — {doctor.specialisation || 'General'}
+                        {doctor.distanceKm != null ? ` (${doctor.distanceKm} km)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <p className="form-hint">
+                  Prefer to browse by location? <Link to="/search-doctors" className="text-primary-600 hover:underline">Find a vet near you</Link>
+                </p>
               </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <div className="form-group mb-0">
+                <label className="form-label">Notes</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows="3"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Any special notes..."
+                  className="textarea-field"
+                  placeholder="Any special notes for the vet..."
                 />
               </div>
             </form>
@@ -253,16 +302,9 @@ const BookAppointment = () => {
 
         {/* Right Column - Calendar & Time Slots */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-20">
-            {selectedDoctor ? (
-              <div className="mb-4 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                <p className="text-sm text-emerald-700 font-medium">
-                  ✅ Dr. {selectedDoctor.user?.name || selectedDoctor.name}
-                </p>
-                <p className="text-xs text-emerald-600">{selectedDoctor.specialisation}</p>
-              </div>
-            ) : (
-              <div className="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200 text-center text-gray-500 text-sm">
+          <div className="card sticky top-20">
+            {!selectedDoctor && (
+              <div className="mb-4 p-3 bg-ink-50 rounded-xl border border-ink-200 text-center text-ink-500 text-sm">
                 👆 Select a doctor first
               </div>
             )}
@@ -270,29 +312,16 @@ const BookAppointment = () => {
             {/* Calendar */}
             <div className="mb-4">
               <div className="flex justify-between items-center mb-3">
-                <button
-                  onClick={() => handleMonthChange(-1)}
-                  className="p-1 hover:bg-gray-100 rounded-lg transition text-gray-600"
-                >
-                  ‹
-                </button>
-                <h3 className="font-semibold text-gray-800">
+                <button type="button" onClick={() => handleMonthChange(-1)} className="btn-icon">‹</button>
+                <h3 className="font-semibold text-ink-800">
                   {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
                 </h3>
-                <button
-                  onClick={() => handleMonthChange(1)}
-                  className="p-1 hover:bg-gray-100 rounded-lg transition text-gray-600"
-                >
-                  ›
-                </button>
+                <button type="button" onClick={() => handleMonthChange(1)} className="btn-icon">›</button>
               </div>
-              
-              {/* Calendar Grid */}
+
               <div className="grid grid-cols-7 gap-1 text-center">
                 {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-                  <div key={day} className="text-xs font-medium text-gray-500 py-1">
-                    {day}
-                  </div>
+                  <div key={day} className="text-xs font-medium text-ink-400 py-1">{day}</div>
                 ))}
                 {renderCalendar()}
               </div>
@@ -300,8 +329,8 @@ const BookAppointment = () => {
 
             {/* Time Slots */}
             {selectedDate && (
-              <div className="border-t border-gray-100 pt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">
+              <div className="border-t border-ink-100 pt-4">
+                <h4 className="text-sm font-medium text-ink-700 mb-3">
                   Available Slots for {selectedDate}
                 </h4>
                 {availableSlots.length > 0 ? (
@@ -309,12 +338,13 @@ const BookAppointment = () => {
                     {availableSlots.map((slot) => (
                       <button
                         key={slot}
+                        type="button"
                         onClick={() => {
                           setSelectedTime(slot);
                           setFormData({ ...formData, appointmentTime: slot });
                         }}
                         className={`py-2 rounded-lg text-sm font-medium transition-all duration-200
-                          ${selectedTime === slot ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+                          ${selectedTime === slot ? 'bg-primary-600 text-white shadow-glow' : 'bg-ink-100 text-ink-700 hover:bg-ink-200'}
                         `}
                       >
                         {slot}
@@ -322,7 +352,7 @@ const BookAppointment = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-center text-gray-500 text-sm py-4">
+                  <p className="text-center text-ink-400 text-sm py-4">
                     No available slots on this date
                   </p>
                 )}
@@ -331,12 +361,8 @@ const BookAppointment = () => {
 
             {/* Book Button */}
             {selectedDate && selectedTime && (
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
-                className="mt-4 w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold hover:bg-emerald-700 transition disabled:opacity-50"
-              >
-                {loading ? '⏳ Booking...' : `📅 Book for ${selectedTime}`}
+              <button onClick={handleSubmit} disabled={loading} className="btn-primary w-full mt-4 !py-3">
+                {loading ? 'Booking...' : `Book for ${selectedTime}`}
               </button>
             )}
           </div>

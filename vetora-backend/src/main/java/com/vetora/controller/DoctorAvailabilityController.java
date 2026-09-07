@@ -18,7 +18,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/doctor")
-@CrossOrigin(origins = "*")
 public class DoctorAvailabilityController {
 
     private final DoctorAvailabilityService availabilityService;

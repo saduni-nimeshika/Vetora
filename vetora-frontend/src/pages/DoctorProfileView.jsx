@@ -2,14 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { 
   FaUserMd, FaStethoscope, FaHospital, FaMapMarkerAlt, 
   FaPhone, FaEnvelope, FaClock, FaCalendar, FaArrowLeft,
   FaEdit, FaShareAlt, FaHeart, FaGraduationCap, FaBriefcase,
   FaMapPin, FaDirections, FaCalendarCheck, FaInfoCircle,
-  FaCheckCircle, FaUser, FaCamera, FaSave, FaTimes
+  FaCheckCircle, FaUser, FaCamera, FaSave, FaTimes, FaCrosshairs
 } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+// Sri Lanka's rough geographic center — used as the map's default view
+// until the doctor has a location set or picks one.
+const SRI_LANKA_CENTER = [7.8731, 80.7718];
+
+// Listens for clicks on the map and reports the picked coordinates up
+const LocationPicker = ({ onPick }) => {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+};
 
 const DoctorProfileView = () => {
   const { user } = useAuth();
@@ -18,6 +42,7 @@ const DoctorProfileView = () => {
   const [doctor, setDoctor] = useState(null);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     fetchDoctorProfile();
@@ -46,6 +71,33 @@ const DoctorProfileView = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handlePickLocation = (lat, lng) => {
+    setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Location access is not supported by your browser');
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        }));
+        setLocating(false);
+        toast.success('📍 Location captured — don\'t forget to save');
+      },
+      () => {
+        setLocating(false);
+        toast.error('Could not get your location. Try clicking the map instead.');
+      }
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -189,6 +241,13 @@ const DoctorProfileView = () => {
                     <span className="text-gray-500">Phone</span>
                     <span className="font-medium">{doctor.phoneNumber || 'N/A'}</span>
                   </div>
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <span className="text-gray-500">Map Pin</span>
+                    <span className={`font-medium flex items-center gap-1 ${doctor.latitude && doctor.longitude ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      <FaMapPin className="text-xs" />
+                      {doctor.latitude && doctor.longitude ? 'Exact location set' : 'Not set (showing district only)'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -286,6 +345,55 @@ const DoctorProfileView = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
+              </div>
+
+              {/* Clinic Location Map Picker */}
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    <FaMapPin className="inline mr-1 text-emerald-600" />
+                    Clinic Location on Map
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocation}
+                    disabled={locating}
+                    className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <FaCrosshairs />
+                    {locating ? 'Locating...' : 'Use my current location'}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mb-2">
+                  Click anywhere on the map to drop a pin at your clinic's exact location. Pet owners searching nearby will see this instead of an approximate district center.
+                </p>
+                <div className="rounded-xl overflow-hidden border border-gray-200" style={{ height: '260px' }}>
+                  <MapContainer
+                    center={
+                      formData.latitude && formData.longitude
+                        ? [formData.latitude, formData.longitude]
+                        : SRI_LANKA_CENTER
+                    }
+                    zoom={formData.latitude && formData.longitude ? 15 : 8}
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    />
+                    <LocationPicker onPick={handlePickLocation} />
+                    {formData.latitude && formData.longitude && (
+                      <Marker position={[formData.latitude, formData.longitude]} />
+                    )}
+                  </MapContainer>
+                </div>
+                {formData.latitude && formData.longitude ? (
+                  <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
+                    <FaCheckCircle /> Pin set at {Number(formData.latitude).toFixed(5)}, {Number(formData.longitude).toFixed(5)}
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-600 mt-2">No pin set yet — click the map above</p>
+                )}
               </div>
               <div className="mt-4 flex gap-3">
                 <button

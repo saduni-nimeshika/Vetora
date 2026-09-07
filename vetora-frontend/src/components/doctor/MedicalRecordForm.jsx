@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { FaFileMedical, FaSave } from 'react-icons/fa';
+import { FaFileMedical, FaSave, FaPaw, FaArrowLeft } from 'react-icons/fa';
 
 const MedicalRecordForm = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const prefilledPetId = searchParams.get('petId') || '';
+  const prefilledPetName = searchParams.get('petName') || '';
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    petId: '',
+    petId: prefilledPetId,
     diagnosis: '',
     treatment: '',
     notes: '',
@@ -37,16 +41,31 @@ const MedicalRecordForm = () => {
 
       <div className="bg-white rounded-2xl shadow-lg p-6">
         <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Pet ID</label>
-            <input
-              type="number"
-              value={formData.petId}
-              onChange={(e) => setFormData({...formData, petId: e.target.value})}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              required
-            />
-          </div>
+          {prefilledPetName ? (
+            <div className="mb-4 flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+              <span className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                <FaPaw />
+              </span>
+              <div>
+                <p className="text-xs text-emerald-600 font-medium">Adding record for</p>
+                <p className="font-semibold text-gray-800">{prefilledPetName}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pet ID</label>
+              <input
+                type="number"
+                value={formData.petId}
+                onChange={(e) => setFormData({...formData, petId: e.target.value})}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                required
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Tip: go to <Link to="/doctor/patients" className="text-emerald-600 hover:underline inline-flex items-center gap-1"><FaArrowLeft className="text-[10px]" />My Patients</Link> and open a pet profile — the Pet ID will be filled in automatically.
+              </p>
+            </div>
+          )}
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
@@ -94,3 +113,4 @@ const MedicalRecordForm = () => {
 };
 
 export default MedicalRecordForm;
+

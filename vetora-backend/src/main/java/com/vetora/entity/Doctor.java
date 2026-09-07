@@ -28,6 +28,11 @@ public class Doctor {
     private String clinicName;
     private String clinicAddress;
 
+    // Precise clinic location for map/distance-based search. Nullable — when
+    // absent, search falls back to an approximate district-centroid location.
+    private Double latitude;
+    private Double longitude;
+
     private String profileImage = "default-avatar.png";
 
     @Column(name = "is_approved", nullable = false)
@@ -98,6 +103,12 @@ public class Doctor {
 
     public String getClinicAddress() { return clinicAddress; }
     public void setClinicAddress(String clinicAddress) { this.clinicAddress = clinicAddress; }
+
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
 
     public String getProfileImage() { return profileImage; }
     public void setProfileImage(String profileImage) { this.profileImage = profileImage; }

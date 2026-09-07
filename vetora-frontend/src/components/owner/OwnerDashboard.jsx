@@ -19,6 +19,7 @@ const OwnerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [recentPets, setRecentPets] = useState([]);
+  const [upcomingReminders, setUpcomingReminders] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -48,7 +49,9 @@ const OwnerDashboard = () => {
         );
         allReminders = reminderResults.flat();
         reminderCount = allReminders.length;
+        allReminders.sort((a, b) => new Date(a.reminderDateTime) - new Date(b.reminderDateTime));
       }
+      setUpcomingReminders(allReminders.slice(0, 4));
 
       setStats({
         pets: pets.length,
@@ -162,8 +165,8 @@ const OwnerDashboard = () => {
         </Link>
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      {/* Three Column Layout */}
+      <div className="grid lg:grid-cols-3 gap-6">
         {/* Recent Pets */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <div className="flex justify-between items-center mb-4">
@@ -224,6 +227,38 @@ const OwnerDashboard = () => {
                     {app.status}
                   </span>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Upcoming Reminders */}
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-gray-800">⏰ Upcoming Reminders</h2>
+            <Link to="/owner/pets" className="text-sm text-emerald-600 hover:underline">
+              View All
+            </Link>
+          </div>
+          {upcomingReminders.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No upcoming reminders</p>
+          ) : (
+            <div className="space-y-3">
+              {upcomingReminders.map((r) => (
+                <Link key={r.id} to={`/owner/pets/${r.petId}?tab=reminders`} className="block">
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition cursor-pointer">
+                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 shrink-0">
+                      <FaBell className="text-sm" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-800 truncate">{r.petName} — {r.message}</h4>
+                      <p className="text-sm text-gray-500">
+                        {new Date(r.reminderDateTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <FaArrowRight className="text-gray-400 shrink-0" />
+                  </div>
+                </Link>
               ))}
             </div>
           )}

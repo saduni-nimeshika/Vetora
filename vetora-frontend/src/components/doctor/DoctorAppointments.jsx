@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { FaCalendar, FaCheck, FaTimes, FaSync } from 'react-icons/fa';
+import { FaCalendar, FaCheck, FaTimes, FaSync, FaEye } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 const DoctorAppointments = () => {
@@ -132,7 +133,17 @@ const DoctorAppointments = () => {
                       </span>
                     </td>
                     <td className="p-3">
-                      {app.status === 'PENDING' && (
+                      <div className="flex gap-2 items-center">
+                        {app.petId && (
+                          <Link
+                            to={`/doctor/patients/${app.petId}`}
+                            className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition"
+                            title="View Patient Profile"
+                          >
+                            <FaEye />
+                          </Link>
+                        )}
+                        {app.status === 'PENDING' && (
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleStatusUpdate(app.id, 'APPROVED')}
@@ -152,15 +163,16 @@ const DoctorAppointments = () => {
                           </button>
                         </div>
                       )}
-                      {app.status === 'APPROVED' && (
-                        <button
-                          onClick={() => handleStatusUpdate(app.id, 'COMPLETED')}
-                          disabled={updating === app.id}
-                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition disabled:opacity-50 text-sm"
-                        >
-                          {updating === app.id ? '...' : '✅ Complete'}
-                        </button>
-                      )}
+                        {app.status === 'APPROVED' && (
+                          <button
+                            onClick={() => handleStatusUpdate(app.id, 'COMPLETED')}
+                            disabled={updating === app.id}
+                            className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition disabled:opacity-50 text-sm"
+                          >
+                            {updating === app.id ? '...' : '✅ Complete'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

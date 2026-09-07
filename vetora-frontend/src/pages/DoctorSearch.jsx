@@ -4,11 +4,11 @@ import api from '../api/axios';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { FaSearch, FaMapMarkerAlt, FaStethoscope, FaHospital, FaDirections, FaTimes, FaCalendar, FaRuler, FaUserMd } from 'react-icons/fa';
+import { FaSearch, FaMapMarkerAlt, FaStethoscope, FaDirections, FaUserMd, FaRuler, FaFilter, FaTimes } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { districts as slDistricts } from '../utils/sriLankaData';
 
-// Fix for default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -16,7 +16,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Custom Doctor Marker Icon
 const doctorIcon = new L.Icon({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -24,18 +23,10 @@ const doctorIcon = new L.Icon({
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+  shadowSize: [41, 41],
 });
 
 const LocationMarker = ({ position }) => {
-  const map = useMap();
-
-  useEffect(() => {
-    if (position) {
-      map.flyTo(position, 13);
-    }
-  }, [position, map]);
-
   return position ? (
     <Marker position={position}>
       <Popup>📍 Your Location</Popup>
@@ -43,184 +34,48 @@ const LocationMarker = ({ position }) => {
   ) : null;
 };
 
-// ✅ Doctor Details Modal
-const DoctorDetailsModal = ({ doctor, onClose, userLocation }) => {
-  if (!doctor) return null;
-
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  const distance = userLocation && doctor.latitude && doctor.longitude
-    ? calculateDistance(userLocation.lat, userLocation.lng, doctor.latitude, doctor.longitude)
-    : null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              <FaUserMd className="text-emerald-600" />
-              Dr. {doctor.user?.name || doctor.name}
-            </h2>
-            {distance !== null && (
-              <p className="text-sm text-emerald-600 font-medium mt-1 flex items-center gap-1">
-                <FaRuler /> 📍 {distance.toFixed(1)} km from your location
-              </p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl transition"
-          >
-            <FaTimes />
-          </button>
-        </div>
-
-        {/* Doctor Details */}
-        <div className="grid md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider">Specialisation</p>
-            <p className="font-medium text-gray-800">{doctor.specialisation || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider">Experience</p>
-            <p className="font-medium text-gray-800">{doctor.yearsOfExperience || 'N/A'} years</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider">Clinic</p>
-            <p className="font-medium text-gray-800">{doctor.clinicName || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider">Location</p>
-            <p className="font-medium text-gray-800">{doctor.city}, {doctor.district}</p>
-          </div>
-          <div className="md:col-span-2">
-            <p className="text-xs text-gray-400 uppercase tracking-wider">Address</p>
-            <p className="font-medium text-gray-800">{doctor.clinicAddress || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider">Phone</p>
-            <p className="font-medium text-gray-800">{doctor.phoneNumber || 'N/A'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider">Qualifications</p>
-            <p className="font-medium text-gray-800">{doctor.qualifications || 'N/A'}</p>
-          </div>
-        </div>
-
-        {/* Mini Map */}
-        {userLocation && doctor.latitude && doctor.longitude && (
-          <div className="mt-4 border rounded-xl overflow-hidden">
-            <div className="bg-gray-50 px-4 py-2 border-b">
-              <h4 className="text-sm font-medium text-gray-700">📍 Location Map</h4>
-            </div>
-            <div className="h-56">
-              <MapContainer
-                center={[doctor.latitude, doctor.longitude]}
-                zoom={14}
-                style={{ height: '100%', width: '100%' }}
-                zoomControl={false}
-              >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                />
-                <Marker position={[userLocation.lat, userLocation.lng]}>
-                  <Popup>📍 Your Location</Popup>
-                </Marker>
-                <Marker position={[doctor.latitude, doctor.longitude]} icon={doctorIcon}>
-                  <Popup>{doctor.clinicName}</Popup>
-                </Marker>
-              </MapContainer>
-            </div>
-            <div className="flex justify-between text-xs text-gray-400 px-4 py-2 bg-gray-50">
-              <span>📍 Your Location</span>
-              <span>🏥 {doctor.clinicName}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            to={`/owner/appointments/book?doctorId=${doctor.user?.id}`}
-            className="flex-1 min-w-[120px] bg-emerald-600 text-white py-3 rounded-xl font-semibold hover:bg-emerald-700 transition flex items-center justify-center gap-2"
-          >
-            <FaCalendar /> Book Appointment
-          </Link>
-          {doctor.latitude && doctor.longitude && (
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${doctor.latitude},${doctor.longitude}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 min-w-[120px] bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2"
-            >
-              <FaDirections /> Directions
-            </a>
-          )}
-          <button
-            onClick={onClose}
-            className="flex-1 min-w-[100px] bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-300 transition"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+// Once search results come back, zoom/pan the map so every result pin is
+// actually visible — otherwise the map stays centered on the user's own
+// location and distant results (e.g. a different district) never appear
+// in the viewport even though they're in the results list.
+const FitBoundsToResults = ({ userLocation, doctors }) => {
+  const map = useMap();
+  useEffect(() => {
+    const points = doctors.filter((d) => d.latitude && d.longitude).map((d) => [d.latitude, d.longitude]);
+    if (userLocation) points.push([userLocation.lat, userLocation.lng]);
+    if (points.length === 0) return;
+    if (points.length === 1) {
+      map.flyTo(points[0], 12);
+    } else {
+      map.flyToBounds(points, { padding: [50, 50], maxZoom: 13 });
+    }
+  }, [doctors, userLocation, map]);
+  return null;
 };
+
+const specialisations = [
+  'Small Animal Medicine', 'Large Animal Medicine', 'Surgery',
+  'Dermatology', 'Cardiology', 'Neurology', 'Orthopedics',
+  'Ophthalmology', 'Dentistry', 'Nutrition', 'Emergency Medicine',
+];
 
 const DoctorSearch = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [doctors, setDoctors] = useState([]);
-  const [filteredDoctors, setFilteredDoctors] = useState([]);
   const [searchParams, setSearchParams] = useState({
-    district: '',
-    city: '',
-    specialisation: '',
-    radius: 10
+    district: '', city: '', specialisation: '', radius: 15,
   });
   const [userLocation, setUserLocation] = useState(null);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [error, setError] = useState(null);
-
-  const districts = [
-    'Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale',
-    'Nuwara Eliya', 'Galle', 'Matara', 'Hambantota', 'Jaffna',
-    'Kilinochchi', 'Mannar', 'Mullaitivu', 'Vavuniya', 'Puttalam',
-    'Kurunegala', 'Kegalle', 'Ratnapura', 'Badulla', 'Monaragala',
-    'Ampara', 'Batticaloa', 'Trincomalee', 'Polonnaruwa', 'Anuradhapura'
-  ];
-
-  const specialisations = [
-    'Small Animal Medicine', 'Large Animal Medicine', 'Surgery',
-    'Dermatology', 'Cardiology', 'Neurology', 'Orthopedics',
-    'Ophthalmology', 'Dentistry', 'Nutrition', 'Emergency Medicine'
-  ];
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setUserLocation({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude
-          });
-        },
-        () => {
-          setUserLocation({ lat: 6.9271, lng: 79.8612 });
-        }
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => setUserLocation({ lat: 6.9271, lng: 79.8612 })
       );
     } else {
       setUserLocation({ lat: 6.9271, lng: 79.8612 });
@@ -231,7 +86,6 @@ const DoctorSearch = () => {
     try {
       setLoading(true);
       setError(null);
-
       const params = new URLSearchParams();
       if (userLocation) {
         params.append('lat', userLocation.lat);
@@ -243,16 +97,9 @@ const DoctorSearch = () => {
       if (searchParams.specialisation) params.append('specialisation', searchParams.specialisation);
 
       const response = await api.get(`/api/v1/search/doctors?${params.toString()}`);
-      
-      if (response.data && response.data.doctors) {
-        setDoctors(response.data.doctors);
-        setFilteredDoctors(response.data.doctors);
-      } else {
-        setDoctors([]);
-        setFilteredDoctors([]);
-      }
-    } catch (error) {
-      console.error('Error searching doctors:', error);
+      setDoctors(response.data?.doctors || []);
+    } catch (err) {
+      console.error('Error searching doctors:', err);
       setError('Failed to search doctors. Please try again.');
       toast.error('Failed to search doctors');
     } finally {
@@ -261,9 +108,8 @@ const DoctorSearch = () => {
   };
 
   useEffect(() => {
-    if (userLocation) {
-      searchDoctors();
-    }
+    if (userLocation) searchDoctors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation]);
 
   const handleSearch = (e) => {
@@ -272,69 +118,53 @@ const DoctorSearch = () => {
   };
 
   const handleInputChange = (e) => {
-    setSearchParams({
-      ...searchParams,
-      [e.target.name]: e.target.value
-    });
+    setSearchParams({ ...searchParams, [e.target.name]: e.target.value });
   };
 
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+  const clearFilters = () => {
+    setSearchParams({ district: '', city: '', specialisation: '', radius: 15 });
   };
+
+  const activeFilterCount = ['district', 'city', 'specialisation'].filter((k) => searchParams[k]).length;
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <FaMapMarkerAlt className="text-emerald-600" />
-        Find Doctors Near You
-      </h1>
+    <div className="max-w-7xl mx-auto animate-fadeIn">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">
+            <FaMapMarkerAlt className="text-primary-600" /> Find a Vet Near You
+          </h1>
+          <p className="page-subtitle">Search by location, and book directly from a doctor's profile</p>
+        </div>
+        <button onClick={() => setShowFilters((s) => !s)} className="btn-secondary lg:hidden">
+          <FaFilter /> Filters {activeFilterCount > 0 && <span className="badge-neutral">{activeFilterCount}</span>}
+        </button>
+      </div>
 
       {/* Search Filters */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-        <form onSubmit={handleSearch} className="grid md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
-            <select
-              name="district"
-              value={searchParams.district}
-              onChange={handleInputChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-            >
+      <div className={`card mb-6 ${showFilters ? 'block' : 'hidden lg:block'}`}>
+        <form onSubmit={handleSearch} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+          <div className="form-group mb-0">
+            <label className="form-label">District</label>
+            <select name="district" value={searchParams.district} onChange={handleInputChange} className="select-field">
               <option value="">All Districts</option>
-              {districts.map((d) => (
-                <option key={d} value={d}>{d}</option>
+              {slDistricts.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+          <div className="form-group mb-0">
+            <label className="form-label">City</label>
             <input
-              type="text"
-              name="city"
-              value={searchParams.city}
-              onChange={handleInputChange}
-              placeholder="Enter city"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              type="text" name="city" value={searchParams.city} onChange={handleInputChange}
+              placeholder="Any city" className="input-field"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Specialisation</label>
-            <select
-              name="specialisation"
-              value={searchParams.specialisation}
-              onChange={handleInputChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-            >
+          <div className="form-group mb-0">
+            <label className="form-label">Specialisation</label>
+            <select name="specialisation" value={searchParams.specialisation} onChange={handleInputChange} className="select-field">
               <option value="">All Specialisations</option>
               {specialisations.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -342,90 +172,71 @@ const DoctorSearch = () => {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Radius (km)</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                name="radius"
-                value={searchParams.radius}
-                onChange={handleInputChange}
-                min="1"
-                max="50"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              />
-              <button
-                type="submit"
-                className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
-              >
-                <FaSearch />
-                Search
+          <div className="form-group mb-0">
+            <label className="form-label">Radius: {searchParams.radius} km</label>
+            <input
+              type="range" name="radius" min="1" max="50" value={searchParams.radius}
+              onChange={handleInputChange}
+              disabled={!!(searchParams.district || searchParams.city)}
+              className="w-full accent-primary-600 h-2.5 disabled:opacity-40"
+            />
+            {(searchParams.district || searchParams.city) && (
+              <p className="text-[11px] text-ink-400 mt-1">Ignored while a District/City is picked</p>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <button type="submit" className="btn-primary flex-1"><FaSearch /> Search</button>
+            {activeFilterCount > 0 && (
+              <button type="button" onClick={clearFilters} className="btn-icon border border-ink-200" title="Clear filters">
+                <FaTimes />
               </button>
-            </div>
+            )}
           </div>
         </form>
       </div>
 
       {/* Map and Results */}
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Map */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden" style={{ height: '500px' }}>
+          <div className="rounded-2xl shadow-card overflow-hidden border border-ink-100" style={{ height: '520px' }}>
             {userLocation ? (
-              <MapContainer
-                center={[userLocation.lat, userLocation.lng]}
-                zoom={13}
-                style={{ height: '100%', width: '100%' }}
-              >
+              <MapContainer center={[userLocation.lat, userLocation.lng]} zoom={12} style={{ height: '100%', width: '100%' }}>
                 <TileLayer
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
                 <LocationMarker position={[userLocation.lat, userLocation.lng]} />
-                
-                {filteredDoctors.map((doctor) => {
-                  const dist = userLocation && doctor.latitude && doctor.longitude
-                    ? calculateDistance(userLocation.lat, userLocation.lng, doctor.latitude, doctor.longitude)
-                    : null;
-                  
-                  return (
-                    <Marker
-                      key={doctor.id}
-                      position={[doctor.latitude || 6.9271, doctor.longitude || 79.8612]}
-                      icon={doctorIcon}
-                      eventHandlers={{
-                        click: () => {
-                          console.log('📤 Marker clicked:', doctor.user?.name);
-                          setSelectedDoctor(doctor);
-                        }
-                      }}
-                    >
-                      {/* ✅ Simple Popup - Only Basic Info */}
-                      <Popup>
-                        <div className="p-1 max-w-[200px]">
-                          <h4 className="font-semibold text-gray-800 text-sm">
-                            Dr. {doctor.user?.name || doctor.name}
-                          </h4>
-                          <p className="text-xs text-gray-500">{doctor.specialisation}</p>
-                          {dist !== null && (
-                            <p className="text-xs text-emerald-600">📍 {dist.toFixed(1)} km away</p>
-                          )}
-                          <button
-                            onClick={() => setSelectedDoctor(doctor)}
-                            className="mt-2 w-full text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition"
-                          >
-                            View Full Profile
-                          </button>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  );
-                })}
+                <FitBoundsToResults userLocation={userLocation} doctors={doctors} />
+                {doctors.filter((d) => d.latitude && d.longitude).map((doctor) => (
+                  <Marker
+                    key={doctor.id}
+                    position={[doctor.latitude, doctor.longitude]}
+                    icon={doctorIcon}
+                    eventHandlers={{ click: () => setSelectedDoctor(doctor) }}
+                  >
+                    <Popup>
+                      <div className="p-1 max-w-[200px]">
+                        <h4 className="font-semibold text-ink-800 text-sm">Dr. {doctor.user?.name}</h4>
+                        <p className="text-xs text-ink-500">{doctor.specialisation}</p>
+                        {doctor.distanceKm != null && (
+                          <p className="text-xs text-primary-600">📍 {doctor.distanceKm} km away</p>
+                        )}
+                        <Link
+                          to={`/owner/doctors/${doctor.id}`}
+                          className="mt-2 block w-full text-center text-xs bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 transition"
+                        >
+                          View Profile
+                        </Link>
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
               </MapContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="flex items-center justify-center h-full text-ink-500">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-2"></div>
+                  <div className="spinner w-8 h-8 mx-auto mb-2" />
                   <p>Loading map...</p>
                 </div>
               </div>
@@ -435,101 +246,83 @@ const DoctorSearch = () => {
 
         {/* Results List */}
         <div>
-          <div className="bg-white rounded-2xl shadow-lg p-4 max-h-[500px] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-semibold text-gray-800">
-                {filteredDoctors.length} Doctors Found
-              </h2>
-            </div>
+          <div className="card !p-4 max-h-[520px] overflow-y-auto">
+            <h2 className="font-semibold text-ink-800 mb-4 px-1">
+              {doctors.length} Doctor{doctors.length !== 1 ? 's' : ''} Found
+            </h2>
 
             {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
-                <p className="text-gray-500 mt-2">Searching...</p>
+              <div className="text-center py-10">
+                <div className="spinner w-8 h-8 mx-auto" />
+                <p className="text-ink-400 mt-2 text-sm">Searching...</p>
               </div>
             ) : error ? (
-              <div className="text-center py-8 text-red-500">
-                <p>{error}</p>
-              </div>
-            ) : filteredDoctors.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <FaStethoscope className="text-4xl mx-auto mb-2 text-gray-300" />
-                <p>No doctors found</p>
-                <p className="text-sm">Try adjusting your search filters</p>
+              <div className="text-center py-10 text-red-500 text-sm">{error}</div>
+            ) : doctors.length === 0 ? (
+              <div className="empty-state !py-10">
+                <FaStethoscope className="text-3xl text-ink-300 mb-2" />
+                <p className="text-ink-500 font-medium text-sm">No doctors found</p>
+                <p className="text-ink-400 text-xs mt-1">Try a larger radius or different filters</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredDoctors.map((doctor) => {
-                  const dist = userLocation && doctor.latitude && doctor.longitude
-                    ? calculateDistance(userLocation.lat, userLocation.lng, doctor.latitude, doctor.longitude)
-                    : null;
-                  
-                  return (
-                    <div
-                      key={doctor.id}
-                      className={`p-4 rounded-xl border transition cursor-pointer ${
-                        selectedDoctor?.id === doctor.id
-                          ? 'border-emerald-500 bg-emerald-50'
-                          : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50'
-                      }`}
-                      onClick={() => setSelectedDoctor(doctor)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold text-gray-800">
-                            Dr. {doctor.user?.name || doctor.name}
-                          </h3>
-                          <p className="text-sm text-gray-600">{doctor.specialisation}</p>
-                          <p className="text-sm text-gray-500">{doctor.clinicName}</p>
-                          <p className="text-sm text-gray-500">{doctor.city}, {doctor.district}</p>
+                {doctors.map((doctor) => (
+                  <div
+                    key={doctor.id}
+                    className={`p-3.5 rounded-xl border transition cursor-pointer ${
+                      selectedDoctor?.id === doctor.id
+                        ? 'border-primary-400 bg-primary-50'
+                        : 'border-ink-100 hover:border-primary-200 hover:bg-ink-50'
+                    }`}
+                    onClick={() => setSelectedDoctor(doctor)}
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span className="avatar w-10 h-10 bg-primary-100 text-primary-700 shrink-0">
+                          <FaUserMd />
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-ink-800 truncate">Dr. {doctor.user?.name}</h3>
+                          <p className="text-sm text-ink-500 truncate">{doctor.specialisation || 'General Practitioner'}</p>
+                          <p className="text-xs text-ink-400 truncate">{doctor.clinicName || `${doctor.city || ''}${doctor.city && doctor.district ? ', ' : ''}${doctor.district || ''}`}</p>
                         </div>
-                        {dist !== null && (
-                          <span className="text-xs text-emerald-600 font-medium whitespace-nowrap ml-2">
-                            📍 {dist.toFixed(1)} km
-                          </span>
-                        )}
                       </div>
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedDoctor(doctor);
-                          }}
-                        >
-                          View Details
-                        </button>
-                        {doctor.latitude && doctor.longitude && (
-                          <a
-                            href={`https://www.google.com/maps/dir/?api=1&destination=${doctor.latitude},${doctor.longitude}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <FaDirections /> Directions
-                          </a>
-                        )}
-                      </div>
+                      {doctor.distanceKm != null && (
+                        <span className="badge-info shrink-0 whitespace-nowrap">
+                          <FaRuler className="text-[9px]" /> {doctor.distanceKm} km
+                        </span>
+                      )}
                     </div>
-                  );
-                })}
+                    <div className="mt-2.5 flex gap-3 pl-[52px]">
+                      <Link
+                        to={`/owner/doctors/${doctor.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-sm text-primary-600 hover:underline font-medium"
+                      >
+                        View Profile
+                      </Link>
+                      {doctor.latitude && doctor.longitude && (
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${doctor.latitude},${doctor.longitude}`}
+                          target="_blank" rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-sm text-ink-500 hover:text-ink-700 font-medium flex items-center gap-1"
+                        >
+                          <FaDirections /> Directions
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* ✅ Doctor Details Modal */}
-      {selectedDoctor && (
-        <DoctorDetailsModal
-          doctor={selectedDoctor}
-          onClose={() => setSelectedDoctor(null)}
-          userLocation={userLocation}
-        />
-      )}
     </div>
   );
 };
 
 export default DoctorSearch;
+
+

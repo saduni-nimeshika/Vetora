@@ -24,6 +24,11 @@ import DoctorAvailability from './components/doctor/DoctorAvailability';
 import DoctorAppointments from './components/doctor/DoctorAppointments';
 import MedicalRecordForm from './components/doctor/MedicalRecordForm';
 import RemindersManager from './components/doctor/RemindersManager';
+import VaccinationForm from './components/doctor/VaccinationForm';
+import PrescriptionForm from './components/doctor/PrescriptionForm';
+import PatientsList from './components/doctor/PatientsList';
+import PatientProfile from './components/doctor/PatientProfile';
+import DoctorProfilePublic from './components/owner/DoctorProfilePublic';
 import DoctorProfileView from './pages/DoctorProfileView';  // ✅ Import
 
 // Pet Owner Components
@@ -113,6 +118,26 @@ function App() {
                   <RemindersManager />
                 </PrivateRoute>
               } />
+              <Route path="/doctor/vaccinations/new" element={
+                <PrivateRoute allowedRoles={['DOCTOR']}>
+                  <VaccinationForm />
+                </PrivateRoute>
+              } />
+              <Route path="/doctor/prescriptions/new" element={
+                <PrivateRoute allowedRoles={['DOCTOR']}>
+                  <PrescriptionForm />
+                </PrivateRoute>
+              } />
+              <Route path="/doctor/patients" element={
+                <PrivateRoute allowedRoles={['DOCTOR']}>
+                  <PatientsList />
+                </PrivateRoute>
+              } />
+              <Route path="/doctor/patients/:petId" element={
+                <PrivateRoute allowedRoles={['DOCTOR']}>
+                  <PatientProfile />
+                </PrivateRoute>
+              } />
               
               {/* ✅ DOCTOR PROFILE ROUTE - මෙතනට ගෙනියන්න! */}
               <Route path="/doctor/profile" element={
@@ -155,6 +180,11 @@ function App() {
               <Route path="/owner/appointments/book" element={
                 <PrivateRoute allowedRoles={['PET_OWNER']}>
                   <BookAppointment />
+                </PrivateRoute>
+              } />
+              <Route path="/owner/doctors/:doctorId" element={
+                <PrivateRoute allowedRoles={['PET_OWNER']}>
+                  <DoctorProfilePublic />
                 </PrivateRoute>
               } />
               <Route path="/owner/medical-records/:petId" element={

@@ -14,13 +14,12 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/doctor")
-@CrossOrigin(origins = "*")
-public class DoctorControlle {
+public class DoctorController {
 
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
 
-    public DoctorControlle(DoctorRepository doctorRepository, UserRepository userRepository) {
+    public DoctorController(DoctorRepository doctorRepository, UserRepository userRepository) {
         this.doctorRepository = doctorRepository;
         this.userRepository = userRepository;
     }
@@ -53,6 +52,8 @@ public class DoctorControlle {
             response.put("clinicAddress", doctor.getClinicAddress());
             response.put("city", doctor.getCity());
             response.put("district", doctor.getDistrict());
+            response.put("latitude", doctor.getLatitude());
+            response.put("longitude", doctor.getLongitude());
             response.put("isApproved", doctor.isApproved());
             response.put("availableDays", doctor.getAvailableDays());
             response.put("availableStartTime", doctor.getAvailableStartTime());
@@ -100,6 +101,12 @@ public class DoctorControlle {
             }
             if (request.containsKey("district")) {
                 doctor.setDistrict((String) request.get("district"));
+            }
+            if (request.containsKey("latitude") && request.get("latitude") != null) {
+                doctor.setLatitude(Double.valueOf(request.get("latitude").toString()));
+            }
+            if (request.containsKey("longitude") && request.get("longitude") != null) {
+                doctor.setLongitude(Double.valueOf(request.get("longitude").toString()));
             }
 
             Doctor updatedDoctor = doctorRepository.save(doctor);

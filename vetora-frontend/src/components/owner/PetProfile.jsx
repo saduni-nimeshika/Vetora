@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -33,13 +33,22 @@ ChartJS.register(
 const PetProfile = () => {
   const { petId } = useParams();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [pet, setPet] = useState(null);
   const [medicalRecords, setMedicalRecords] = useState([]);
   const [vaccinations, setVaccinations] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [reminders, setReminders] = useState([]);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+
+  // If we arrive via a link that specifies a tab (e.g. from a reminder on the
+  // dashboard), jump straight to it instead of always landing on Overview.
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
 
   useEffect(() => {
     fetchPetData();
@@ -48,10 +57,11 @@ const PetProfile = () => {
   const fetchPetData = async () => {
     try {
       setLoading(true);
-      const [petRes, recordsRes, vaccRes, appRes, remRes] = await Promise.all([
+      const [petRes, recordsRes, vaccRes, presRes, appRes, remRes] = await Promise.all([
         api.get(`/api/v1/owner/pets/${petId}`),
         api.get(`/api/v1/owner/medical-records/pet/${petId}`),
         api.get(`/api/v1/owner/vaccinations/pet/${petId}`),
+        api.get(`/api/v1/owner/prescriptions/pet/${petId}`).catch(() => ({ data: { prescriptions: [] } })),
         api.get(`/api/v1/owner/appointments`),
         api.get(`/api/v1/owner/reminders/pet/${petId}`).catch(() => ({ data: { reminders: [] } }))
       ]);
@@ -59,6 +69,7 @@ const PetProfile = () => {
       setPet(petRes.data);
       setMedicalRecords(recordsRes.data?.records || []);
       setVaccinations(vaccRes.data?.vaccinations || []);
+      setPrescriptions(presRes.data?.prescriptions || []);
       setAppointments(appRes.data?.appointments || []);
       const remList = (remRes.data?.reminders || [])
         .sort((a, b) => new Date(a.reminderDateTime) - new Date(b.reminderDateTime));
@@ -193,6 +204,14 @@ const PetProfile = () => {
                 }`}
               >
                 <FaSyringe /> Vaccinations
+              </button>
+              <button
+                onClick={() => setActiveTab('prescriptions')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition ${
+                  activeTab === 'prescriptions' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <FaPrescription /> Prescriptions
               </button>
               <button
                 onClick={() => setActiveTab('appointments')}
@@ -357,6 +376,47 @@ const PetProfile = () => {
                         </span>
                       </div>
                       {vac.notes && <p className="text-sm text-gray-500 mt-2">📝 {vac.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Prescriptions Tab */}
+          {activeTab === 'prescriptions' && (
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <FaPrescription className="text-emerald-600" />
+                Prescriptions
+              </h3>
+              {prescriptions.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No prescriptions found</p>
+              ) : (
+                <div className="space-y-4">
+                  {prescriptions.map((pres) => (
+                    <div key={pres.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-800">{pres.medicationName}</h4>
+                          <div className="grid sm:grid-cols-3 gap-2 mt-2">
+                            <p className="text-sm text-gray-600"><span className="font-medium">Dosage:</span> {pres.dosage}</p>
+                            <p className="text-sm text-gray-600"><span className="font-medium">Frequency:</span> {pres.frequency}</p>
+                            <p className="text-sm text-gray-600"><span className="font-medium">Duration:</span> {pres.duration}</p>
+                          </div>
+                          {pres.instructions && (
+                            <p className="text-sm text-gray-500 mt-2">📋 {pres.instructions}</p>
+                          )}
+                          {pres.doctorName && (
+                            <p className="text-xs text-gray-400 mt-2">👨‍⚕️ Dr. {pres.doctorName}</p>
+                          )}
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium shrink-0 ${
+                          pres.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {pres.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
