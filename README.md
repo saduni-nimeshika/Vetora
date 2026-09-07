@@ -1,5 +1,4 @@
 [Untitled Diagram (1).drawio](https://github.com/user-attachments/files/31921444/Untitled.Diagram.1.drawio)
-![Uploading Untitled Diagram.drawio (3).png…]()
 # 🐾 Vetora - Veterinary Appointment & Pet Healthcare Management System
 
 [![Status](https://img.shields.io/badge/Status-In%20Progress-yellow.svg)](#)
