@@ -1,11 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import VetoraLogo from './VetoraLogo';
 import {
   FaPaw, FaUser, FaSignOutAlt, FaBars, FaTimes, FaChevronDown,
   FaHome, FaCalendarAlt, FaClock, FaUserMd, FaUsers, FaClipboardList,
-  FaUserClock, FaSearch, FaBell,
+  FaUserClock, FaSearch, FaBell, FaInfoCircle, FaConciergeBell, FaPhoneAlt,
 } from 'react-icons/fa';
+
+// Public (guest) top-bar links — jump to sections on the Home page
+const publicNavLinks = [
+  { name: 'Home', hash: '', icon: <FaHome /> },
+  { name: 'About', hash: 'about', icon: <FaInfoCircle /> },
+  { name: 'Services', hash: 'services', icon: <FaConciergeBell /> },
+  { name: 'Contact Us', hash: 'contact', icon: <FaPhoneAlt /> },
+];
 
 const roleNavLinks = {
   ADMIN: [
@@ -38,6 +47,23 @@ const Navbar = () => {
 
   const navLinks = user?.role ? roleNavLinks[user.role] || [] : [];
 
+  // Smooth-scroll to a Home page section; navigates to "/#hash" first if not already on Home
+  const handleSectionNav = (e, hash) => {
+    if (location.pathname === '/') {
+      e.preventDefault();
+      if (!hash) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.history.replaceState(null, '', '/');
+        return;
+      }
+      const el = document.getElementById(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        window.history.replaceState(null, '', `/#${hash}`);
+      }
+    }
+  };
+
   // Close mobile menu / profile dropdown on route change
   useEffect(() => {
     setMobileOpen(false);
@@ -69,13 +95,13 @@ const Navbar = () => {
           {/* Brand */}
           <Link to="/" className="flex items-center gap-2 text-xl font-extrabold text-white font-display shrink-0">
             <span className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
-              <FaPaw className="text-lg" />
+              <VetoraLogo className="w-5 h-5 text-white" />
             </span>
             VETORA
           </Link>
 
-          {/* Desktop nav links (role-based) */}
-          {isAuthenticated && (
+          {/* Desktop nav links (role-based for logged-in users, section links for guests) */}
+          {isAuthenticated ? (
             <div className="hidden lg:flex items-center gap-1">
               {navLinks.map((link) => (
                 <NavLink
@@ -86,6 +112,20 @@ const Navbar = () => {
                   {link.icon}
                   {link.name}
                 </NavLink>
+              ))}
+            </div>
+          ) : (
+            <div className="hidden lg:flex items-center gap-1">
+              {publicNavLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  to={`/${link.hash ? `#${link.hash}` : ''}`}
+                  onClick={(e) => handleSectionNav(e, link.hash)}
+                  className="nav-link"
+                >
+                  {link.icon}
+                  {link.name}
+                </Link>
               ))}
             </div>
           )}
@@ -181,6 +221,17 @@ const Navbar = () => {
               </>
             ) : (
               <>
+                {publicNavLinks.map((link) => (
+                  <Link
+                    key={link.name}
+                    to={`/${link.hash ? `#${link.hash}` : ''}`}
+                    onClick={(e) => handleSectionNav(e, link.hash)}
+                    className="nav-link"
+                  >
+                    {link.icon}
+                    {link.name}
+                  </Link>
+                ))}
                 <Link to="/login" className="nav-link">
                   <FaUser className="text-xs" /> Login
                 </Link>
@@ -200,3 +251,4 @@ const Navbar = () => {
 };
 
 export default Navbar;
+

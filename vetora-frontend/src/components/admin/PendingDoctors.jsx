@@ -70,7 +70,7 @@ const PendingDoctors = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-bold text-gray-800">{doctor.user?.name}</h3>
-                  <p className="text-gray-600">{doctor.email}</p>
+                  <p className="text-gray-600">{doctor.user?.email}</p>
                   <p className="text-sm text-gray-500 mt-1">
                     <span className="font-medium">Specialisation:</span> {doctor.specialisation}
                   </p>

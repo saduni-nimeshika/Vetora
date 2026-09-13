@@ -8,6 +8,9 @@ import PrivateRoute from './components/common/PrivateRoute';
 // Pages
 import Home from './pages/Home';
 import Login from './pages/Login';
+import VerifyEmail from './pages/VerifyEmail';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import DoctorSearch from './pages/DoctorSearch';
@@ -54,6 +57,9 @@ function App() {
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/register" element={<Register />} />
               
               {/* Dashboard */}

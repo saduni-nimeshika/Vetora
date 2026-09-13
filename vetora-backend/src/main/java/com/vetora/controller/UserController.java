@@ -11,7 +11,6 @@ import com.vetora.security.JwtService;
 import com.vetora.service.EmailService;
 import com.vetora.service.UserService;
 import com.vetora.service.VerificationService;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -54,10 +53,9 @@ public class UserController {
 
     // ✅ REGISTER
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody SignUpRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<?> registerUser(@RequestBody SignUpRequest request) {
         try {
-            String baseUrl = "http://localhost:8080";
-            User savedUser = userService.registerUser(request, baseUrl);
+            User savedUser = userService.registerUser(request);
 
             Map<String, Object> response = new HashMap<>();
             response.put("user", savedUser);

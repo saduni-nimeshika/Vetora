@@ -50,7 +50,9 @@ public class SecurityConfig {
                                 "/api/v1/users/verify-email",
                                 "/api/v1/auth/verify",
                                 "/api/v1/auth/resend-verification",
-                                "/api/v1/auth/verification-status"
+                                "/api/v1/auth/verification-status",
+                                "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/reset-password"
                         ).permitAll()
 
                         // ✅ SEARCH - හැම Authenticated User එකටම

@@ -34,8 +34,13 @@ export const AuthProvider = ({ children }) => {
       toast.success('✅ Login successful!');
       return { success: true, user: userData };
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed');
-      return { success: false };
+      // Backend error responses use the "error" key (see GlobalExceptionHandler
+      // and UserController) — "message" was never actually populated here, so
+      // specific reasons like "Email not verified!" were silently swallowed
+      // and replaced with a generic "Login failed" toast.
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Login failed';
+      toast.error(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -45,7 +50,7 @@ export const AuthProvider = ({ children }) => {
       toast.success('✅ Registration successful! Please verify your email.');
       return { success: true };
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+      toast.error(error.response?.data?.error || error.response?.data?.message || 'Registration failed');
       return { success: false };
     }
   };

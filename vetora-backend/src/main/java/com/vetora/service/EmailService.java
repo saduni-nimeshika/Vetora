@@ -5,6 +5,7 @@ import com.vetora.entity.User;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -22,6 +23,13 @@ public class EmailService {
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
     private final JavaMailSender mailSender;
 
+    // The frontend's base URL, e.g. http://localhost:5173 for local dev, or
+    // your LAN IP (http://192.168.1.5:5173) so the link also opens correctly
+    // from a phone or another computer on the same network. Set via the
+    // FRONTEND_URL env var / app.frontend-url property.
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
+
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
@@ -29,7 +37,12 @@ public class EmailService {
     @Async
     public void sendVerificationEmail(String toEmail, String userName, String token) {
         if (toEmail == null || token == null) return;
-        String confirmationUrl = "http://localhost:8080/api/v1/users/verify-email?token=" + token;
+        // Point at the FRONTEND's verify-email page (which calls the backend
+        // API itself and shows a proper success/error screen), not directly
+        // at the backend API — clicking a raw API URL just shows bare JSON,
+        // and previously this was hardcoded to localhost:8080, which only
+        // ever worked when opened on the same machine running the backend.
+        String confirmationUrl = frontendUrl + "/verify-email?token=" + token;
 
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -56,6 +69,39 @@ public class EmailService {
 
         } catch (Exception e) {
             logger.error("❌ Error sending verification email to {}: {}", toEmail, e.getMessage());
+        }
+    }
+
+    @Async
+    public void sendPasswordResetEmail(String toEmail, String userName, String token) {
+        if (toEmail == null || token == null) return;
+        String resetUrl = frontendUrl + "/reset-password?token=" + token;
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(toEmail);
+            helper.setSubject("🔑 Reset Your Password - Vetora Care System");
+
+            String htmlContent = "<div style='font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px; max-width: 500px; margin: 0 auto;'>"
+                    + "<h2 style='color: #059669; text-align: center;'>Password Reset Request</h2>"
+                    + "<p>Hi " + (userName != null ? userName : "there") + ", we received a request to reset your Vetora account password. Click the button below to choose a new one:</p>"
+                    + "<div style='text-align: center; margin: 30px 0;'>"
+                    + "  <a href='" + resetUrl + "' style='padding: 12px 24px; background-color: #059669; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;'>Reset Password</a>"
+                    + "</div>"
+                    + "<p style='font-size: 12px; color: #666;'>⏰ This link will expire in 1 hour.</p>"
+                    + "<p style='font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 15px;'>"
+                    + "If you didn't request a password reset, you can safely ignore this email — your password won't change.</p>"
+                    + "</div>";
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+
+            logger.info("✅ Password reset email sent successfully to: {}", toEmail);
+
+        } catch (Exception e) {
+            logger.error("❌ Error sending password reset email to {}: {}", toEmail, e.getMessage());
         }
     }
 

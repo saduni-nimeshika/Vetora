@@ -40,7 +40,7 @@ public class UserService {
     }
 
     @Transactional
-    public User registerUser(SignUpRequest request, String baseUrl) {
+    public User registerUser(SignUpRequest request) {
 
         String email = request.getEmail().trim();
 
