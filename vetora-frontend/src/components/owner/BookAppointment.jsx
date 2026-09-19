@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { FaCalendar, FaArrowLeft, FaUserMd, FaExchangeAlt, FaPaw } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 14 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+};
 
 const BookAppointment = () => {
   const { user } = useAuth();
@@ -176,12 +186,14 @@ const BookAppointment = () => {
       const isAvailable = !isPast && selectedDoctor;
 
       days.push(
-        <button
+        <motion.button
           key={day}
           type="button"
+          whileHover={isAvailable && !isPast ? { scale: 1.12 } : {}}
+          whileTap={isAvailable && !isPast ? { scale: 0.92 } : {}}
           onClick={() => !isPast && isAvailable && handleDateSelect(date)}
           disabled={isPast || !isAvailable}
-          className={`h-10 w-10 rounded-full text-sm font-medium transition-all duration-200 flex items-center justify-center
+          className={`h-10 w-10 rounded-full text-sm font-medium transition-colors duration-200 flex items-center justify-center
             ${isPast ? 'text-ink-300 cursor-not-allowed bg-ink-50' : ''}
             ${!isPast && !selectedDoctor ? 'text-ink-300 cursor-not-allowed' : ''}
             ${isSelected ? 'bg-primary-600 text-white shadow-glow' : ''}
@@ -190,7 +202,7 @@ const BookAppointment = () => {
           `}
         >
           {day}
-        </button>
+        </motion.button>
       );
     }
     return days;
@@ -208,19 +220,19 @@ const BookAppointment = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto animate-slideUp">
-      <div className="flex items-center gap-4 mb-6">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-5xl mx-auto">
+      <motion.div variants={itemVariants} className="flex items-center gap-4 mb-6">
         <Link to="/owner/appointments" className="text-ink-500 hover:text-ink-800">
           <FaArrowLeft />
         </Link>
         <h1 className="page-title mb-0">
           <FaCalendar className="text-primary-600" /> Book Appointment
         </h1>
-      </div>
+      </motion.div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Column - Form */}
-        <div className="lg:col-span-2 space-y-4">
+        <motion.div variants={itemVariants} className="lg:col-span-2 space-y-4">
           <div className="card">
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -243,44 +255,57 @@ const BookAppointment = () => {
 
               <div className="form-group">
                 <label className="form-label">Doctor *</label>
-                {selectedDoctor && !showDoctorPicker ? (
-                  <div className="flex items-center gap-3 bg-primary-50 border border-primary-200 rounded-xl p-3">
-                    <span className="avatar w-10 h-10 bg-primary-100 text-primary-700 shrink-0">
-                      <FaUserMd />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-ink-800 truncate">
-                        Dr. {selectedDoctor.user?.name || preselectedDoctorName}
-                      </p>
-                      <p className="text-xs text-ink-500 truncate">{selectedDoctor.specialisation}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowDoctorPicker(true)}
-                      className="text-xs font-medium text-primary-600 hover:underline flex items-center gap-1 shrink-0"
+                <AnimatePresence mode="wait">
+                  {selectedDoctor && !showDoctorPicker ? (
+                    <motion.div
+                      key="selected"
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="flex items-center gap-3 bg-primary-50 border border-primary-200 rounded-xl p-3"
                     >
-                      <FaExchangeAlt className="text-[10px]" /> Change
-                    </button>
-                  </div>
-                ) : (
-                  <select
-                    value={formData.doctorId}
-                    onChange={(e) => {
-                      const doctor = doctors.find((d) => String(d.user?.id) === e.target.value);
-                      if (doctor) handleDoctorSelect(doctor);
-                    }}
-                    className="select-field"
-                    required
-                  >
-                    <option value="">Select a doctor</option>
-                    {doctors.map((doctor) => (
-                      <option key={doctor.id} value={doctor.user?.id}>
-                        Dr. {doctor.user?.name} — {doctor.specialisation || 'General'}
-                        {doctor.distanceKm != null ? ` (${doctor.distanceKm} km)` : ''}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                      <span className="avatar w-10 h-10 bg-primary-100 text-primary-700 shrink-0">
+                        <FaUserMd />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-ink-800 truncate">
+                          Dr. {selectedDoctor.user?.name || preselectedDoctorName}
+                        </p>
+                        <p className="text-xs text-ink-500 truncate">{selectedDoctor.specialisation}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowDoctorPicker(true)}
+                        className="text-xs font-medium text-primary-600 hover:underline flex items-center gap-1 shrink-0"
+                      >
+                        <FaExchangeAlt className="text-[10px]" /> Change
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.select
+                      key="picker"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      value={formData.doctorId}
+                      onChange={(e) => {
+                        const doctor = doctors.find((d) => String(d.user?.id) === e.target.value);
+                        if (doctor) handleDoctorSelect(doctor);
+                      }}
+                      className="select-field"
+                      required
+                    >
+                      <option value="">Select a doctor</option>
+                      {doctors.map((doctor) => (
+                        <option key={doctor.id} value={doctor.user?.id}>
+                          Dr. {doctor.user?.name} — {doctor.specialisation || 'General'}
+                          {doctor.distanceKm != null ? ` (${doctor.distanceKm} km)` : ''}
+                        </option>
+                      ))}
+                    </motion.select>
+                  )}
+                </AnimatePresence>
                 <p className="form-hint">
                   Prefer to browse by location? <Link to="/search-doctors" className="text-primary-600 hover:underline">Find a vet near you</Link>
                 </p>
@@ -298,10 +323,10 @@ const BookAppointment = () => {
               </div>
             </form>
           </div>
-        </div>
+        </motion.div>
 
         {/* Right Column - Calendar & Time Slots */}
-        <div className="lg:col-span-1">
+        <motion.div variants={itemVariants} className="lg:col-span-1">
           <div className="card sticky top-20">
             {!selectedDoctor && (
               <div className="mb-4 p-3 bg-ink-50 rounded-xl border border-ink-200 text-center text-ink-500 text-sm">
@@ -328,48 +353,69 @@ const BookAppointment = () => {
             </div>
 
             {/* Time Slots */}
-            {selectedDate && (
-              <div className="border-t border-ink-100 pt-4">
-                <h4 className="text-sm font-medium text-ink-700 mb-3">
-                  Available Slots for {selectedDate}
-                </h4>
-                {availableSlots.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-2">
-                    {availableSlots.map((slot) => (
-                      <button
-                        key={slot}
-                        type="button"
-                        onClick={() => {
-                          setSelectedTime(slot);
-                          setFormData({ ...formData, appointmentTime: slot });
-                        }}
-                        className={`py-2 rounded-lg text-sm font-medium transition-all duration-200
-                          ${selectedTime === slot ? 'bg-primary-600 text-white shadow-glow' : 'bg-ink-100 text-ink-700 hover:bg-ink-200'}
-                        `}
-                      >
-                        {slot}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-ink-400 text-sm py-4">
-                    No available slots on this date
-                  </p>
-                )}
-              </div>
-            )}
+            <AnimatePresence>
+              {selectedDate && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="border-t border-ink-100 pt-4 overflow-hidden"
+                >
+                  <h4 className="text-sm font-medium text-ink-700 mb-3">
+                    Available Slots for {selectedDate}
+                  </h4>
+                  {availableSlots.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {availableSlots.map((slot) => (
+                        <motion.button
+                          key={slot}
+                          type="button"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            setSelectedTime(slot);
+                            setFormData({ ...formData, appointmentTime: slot });
+                          }}
+                          className={`py-2 rounded-lg text-sm font-medium transition-colors duration-200
+                            ${selectedTime === slot ? 'bg-primary-600 text-white shadow-glow' : 'bg-ink-100 text-ink-700 hover:bg-ink-200'}
+                          `}
+                        >
+                          {slot}
+                        </motion.button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-ink-400 text-sm py-4">
+                      No available slots on this date
+                    </p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Book Button */}
-            {selectedDate && selectedTime && (
-              <button onClick={handleSubmit} disabled={loading} className="btn-primary w-full mt-4 !py-3">
-                {loading ? 'Booking...' : `Book for ${selectedTime}`}
-              </button>
-            )}
+            <AnimatePresence>
+              {selectedDate && selectedTime && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <button onClick={handleSubmit} disabled={loading} className="btn-primary w-full mt-4 !py-3">
+                    {loading ? 'Booking...' : `Book for ${selectedTime}`}
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
 export default BookAppointment;
+

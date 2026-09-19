@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { FaCalendar, FaPlus, FaTimes } from 'react-icons/fa';
+import { FaCalendarCheck, FaPlus, FaTimes, FaUserMd, FaClock, FaPaw } from 'react-icons/fa';
+import toast from 'react-hot-toast';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+};
 
 const AppointmentsList = () => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [cancellingId, setCancellingId] = useState(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -20,6 +32,7 @@ const AppointmentsList = () => {
       setAppointments(res.data?.appointments || []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
+      toast.error('Failed to load your appointments');
     } finally {
       setLoading(false);
     }
@@ -27,94 +40,154 @@ const AppointmentsList = () => {
 
   const handleCancel = async (appointmentId) => {
     if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+    setCancellingId(appointmentId);
     try {
       await api.put(`/api/v1/owner/appointments/${appointmentId}/cancel`);
-      fetchAppointments();
-      alert('✅ Appointment cancelled successfully!');
+      await fetchAppointments();
+      toast.success('Appointment cancelled successfully');
     } catch (error) {
-      alert('❌ Failed to cancel appointment');
+      toast.error('Failed to cancel appointment');
+    } finally {
+      setCancellingId(null);
     }
   };
 
-  const getStatusColor = (status) => {
-    if (status === 'APPROVED') return 'bg-emerald-100 text-emerald-700';
-    if (status === 'PENDING') return 'bg-orange-100 text-orange-700';
-    if (status === 'REJECTED') return 'bg-red-100 text-red-700';
-    if (status === 'CANCELLED') return 'bg-gray-100 text-gray-700';
-    return 'bg-gray-100 text-gray-700';
+  const getStatusBadge = (status) => {
+    if (status === 'APPROVED') return 'badge-success';
+    if (status === 'PENDING') return 'badge-warning';
+    if (status === 'REJECTED') return 'badge-danger';
+    if (status === 'CANCELLED') return 'badge-neutral';
+    return 'badge-neutral';
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <FaCalendar className="text-emerald-600" />
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-6xl mx-auto">
+      <motion.div variants={itemVariants} className="page-header">
+        <h1 className="text-2xl font-extrabold text-ink-900 font-display flex items-center gap-2.5">
+          <span className="w-10 h-10 rounded-xl bg-primary-100 text-primary-600 flex items-center justify-center">
+            <FaCalendarCheck />
+          </span>
           My Appointments
         </h1>
-        <Link to="/owner/appointments/book" className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition flex items-center gap-2">
-          <FaPlus /> Book New
-        </Link>
-      </div>
+        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+          <Link to="/owner/appointments/book" className="btn-primary">
+            <FaPlus /> Book New
+          </Link>
+        </motion.div>
+      </motion.div>
 
       {appointments.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-lg p-12 text-center text-gray-500">
-          <p>No appointments found</p>
-          <Link to="/owner/appointments/book" className="text-emerald-600 hover:underline mt-2 inline-block">
-            Book your first appointment
+        <motion.div variants={itemVariants} className="empty-state">
+          <FaCalendarCheck className="text-5xl text-ink-300 mb-3" />
+          <p className="text-ink-500 mb-4">No appointments found</p>
+          <Link to="/owner/appointments/book" className="btn-primary">
+            <FaPlus /> Book Your First Appointment
           </Link>
-        </div>
+        </motion.div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
+        <>
+          {/* Desktop table */}
+          <motion.div variants={itemVariants} className="hidden md:block table-wrap">
+            <table className="table-base">
+              <thead>
                 <tr>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Pet</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Doctor</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Date</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Time</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Status</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Action</th>
+                  <th>Pet</th>
+                  <th>Doctor</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Status</th>
+                  <th className="text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {appointments.map((app) => (
-                  <tr key={app.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="p-3 font-medium">{app.petName}</td>
-                    <td className="p-3 text-gray-600">Dr. {app.doctorName}</td>
-                    <td className="p-3 text-gray-600">{app.appointmentDate}</td>
-                    <td className="p-3 text-gray-600">{app.appointmentTime}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(app.status)}`}>
-                        {app.status}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      {(app.status === 'PENDING' || app.status === 'APPROVED') && (
-                        <button
-                          onClick={() => handleCancel(app.id)}
-                          className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
-                        >
-                          <FaTimes />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                <AnimatePresence>
+                  {appointments.map((app) => (
+                    <motion.tr
+                      key={app.id}
+                      layout
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <td className="font-semibold text-ink-800">{app.petName}</td>
+                      <td>Dr. {app.doctorName}</td>
+                      <td>{app.appointmentDate}</td>
+                      <td>{app.appointmentTime}</td>
+                      <td>
+                        <span className={getStatusBadge(app.status)}>{app.status}</span>
+                      </td>
+                      <td className="text-right">
+                        {(app.status === 'PENDING' || app.status === 'APPROVED') && (
+                          <button
+                            onClick={() => handleCancel(app.id)}
+                            disabled={cancellingId === app.id}
+                            className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 ml-auto"
+                            title="Cancel"
+                          >
+                            <FaTimes className="text-sm" />
+                          </button>
+                        )}
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
               </tbody>
             </table>
-          </div>
-        </div>
+          </motion.div>
+
+          {/* Mobile cards */}
+          <motion.div variants={containerVariants} className="md:hidden space-y-3">
+            <AnimatePresence>
+              {appointments.map((app) => (
+                <motion.div
+                  key={app.id}
+                  variants={itemVariants}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="card-hover"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-10 h-10 rounded-xl bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">
+                        <FaPaw className="text-sm" />
+                      </span>
+                      <div>
+                        <p className="font-bold text-ink-900">{app.petName}</p>
+                        <p className="text-xs text-ink-400 flex items-center gap-1">
+                          <FaUserMd className="text-[10px]" /> Dr. {app.doctorName}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={getStatusBadge(app.status)}>{app.status}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-ink-100">
+                    <p className="text-sm text-ink-500 flex items-center gap-1.5">
+                      <FaClock className="text-primary-400 text-xs" /> {app.appointmentDate} at {app.appointmentTime}
+                    </p>
+                    {(app.status === 'PENDING' || app.status === 'APPROVED') && (
+                      <button
+                        onClick={() => handleCancel(app.id)}
+                        disabled={cancellingId === app.id}
+                        className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                        title="Cancel"
+                      >
+                        <FaTimes className="text-sm" />
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        </>
       )}
-    </div>
+    </motion.div>
   );
 };
 

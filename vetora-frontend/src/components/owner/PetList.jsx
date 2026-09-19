@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { FaPaw, FaPlus, FaEdit, FaTrash, FaEye } from 'react-icons/fa';
+import { FaPaw, FaPlus, FaEdit, FaTrash, FaEye, FaVenusMars, FaWeight, FaBirthdayCake } from 'react-icons/fa';
+import toast from 'react-hot-toast';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+};
+
+const speciesEmoji = { DOG: '🐕', CAT: '🐈', BIRD: '🐦', RABBIT: '🐰' };
 
 const PetList = () => {
   const { user } = useAuth();
   const [pets, setPets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     fetchPets();
@@ -20,81 +34,125 @@ const PetList = () => {
       setPets(res.data?.pets || []);
     } catch (error) {
       console.error('Error fetching pets:', error);
+      toast.error('Failed to load your pets');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (petId) => {
-    if (!window.confirm('Are you sure you want to delete this pet?')) return;
+    if (!window.confirm('Are you sure you want to delete this pet? This cannot be undone.')) return;
+    setDeletingId(petId);
     try {
       await api.delete(`/api/v1/owner/pets/${petId}`);
-      setPets(pets.filter(p => p.id !== petId));
-      alert('✅ Pet deleted successfully!');
+      setPets(pets.filter((p) => p.id !== petId));
+      toast.success('Pet deleted successfully');
     } catch (error) {
-      alert('❌ Failed to delete pet');
+      toast.error('Failed to delete pet');
+    } finally {
+      setDeletingId(null);
     }
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <FaPaw className="text-emerald-600" />
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-6xl mx-auto">
+      <motion.div variants={itemVariants} className="page-header">
+        <h1 className="text-2xl font-extrabold text-ink-900 font-display flex items-center gap-2.5">
+          <span className="w-10 h-10 rounded-xl bg-primary-100 text-primary-600 flex items-center justify-center">
+            <FaPaw />
+          </span>
           My Pets
         </h1>
-        <Link to="/owner/pets/add" className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition flex items-center gap-2">
-          <FaPlus /> Add Pet
-        </Link>
-      </div>
+        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+          <Link to="/owner/pets/add" className="btn-primary">
+            <FaPlus /> Add Pet
+          </Link>
+        </motion.div>
+      </motion.div>
 
       {pets.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-          <FaPaw className="text-6xl text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">No pets found</p>
-          <Link to="/owner/pets/add" className="text-emerald-600 hover:underline mt-2 inline-block">
-            Add your first pet
+        <motion.div variants={itemVariants} className="empty-state">
+          <FaPaw className="text-5xl text-ink-300 mb-3" />
+          <p className="text-ink-500 mb-4">No pets added yet</p>
+          <Link to="/owner/pets/add" className="btn-primary">
+            <FaPlus /> Add Your First Pet
           </Link>
-        </div>
+        </motion.div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {pets.map((pet) => (
-            <div key={pet.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800">{pet.name}</h3>
-                  <p className="text-sm text-gray-600">{pet.species} • {pet.breed || 'Unknown breed'}</p>
-                  <p className="text-sm text-gray-500">{pet.gender} • {pet.age || 'N/A'}</p>
-                  {pet.weight && <p className="text-sm text-gray-500">{pet.weight} kg</p>}
+        <motion.div variants={containerVariants} className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <AnimatePresence>
+            {pets.map((pet) => (
+              <motion.div
+                key={pet.id}
+                variants={itemVariants}
+                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                whileHover={{ y: -4 }}
+                className="card-hover"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="w-14 h-14 rounded-2xl overflow-hidden bg-primary-50 flex items-center justify-center text-2xl shrink-0">
+                      {pet.profileImage ? (
+                        <img src={pet.profileImage} alt={pet.name} className="w-full h-full object-cover" />
+                      ) : (
+                        speciesEmoji[pet.species?.toUpperCase()] || '🐾'
+                      )}
+                    </span>
+                    <div>
+                      <h3 className="font-bold text-ink-900 font-display">{pet.name}</h3>
+                      <p className="text-xs text-ink-400">{pet.species} • {pet.breed || 'Unknown breed'}</p>
+                    </div>
+                  </div>
+                  <span className={pet.isActive ? 'badge-success' : 'badge-danger'}>
+                    {pet.isActive ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
-                <span className={`px-2 py-1 rounded-full text-xs ${pet.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                  {pet.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <Link to={`/owner/pets/${pet.id}`} className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
-                  <FaEye />
-                </Link>
-                <Link to={`/owner/pets/edit/${pet.id}`} className="p-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition">
-                  <FaEdit />
-                </Link>
-                <button onClick={() => handleDelete(pet.id)} className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition">
-                  <FaTrash />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-500 mb-4 pb-4 border-b border-ink-100">
+                  <span className="flex items-center gap-1"><FaVenusMars className="text-primary-400" /> {pet.gender || 'N/A'}</span>
+                  <span className="flex items-center gap-1"><FaBirthdayCake className="text-primary-400" /> {pet.age || 'N/A'}</span>
+                  {pet.weight && (
+                    <span className="flex items-center gap-1"><FaWeight className="text-primary-400" /> {pet.weight} kg</span>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Link
+                    to={`/owner/pets/${pet.id}`}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors text-sm font-semibold"
+                  >
+                    <FaEye className="text-xs" /> View
+                  </Link>
+                  <Link
+                    to={`/owner/pets/edit/${pet.id}`}
+                    className="p-2.5 bg-ink-100 text-ink-600 rounded-lg hover:bg-ink-200 transition-colors"
+                    title="Edit"
+                  >
+                    <FaEdit className="text-sm" />
+                  </Link>
+                  <button
+                    onClick={() => handleDelete(pet.id)}
+                    disabled={deletingId === pet.id}
+                    className="p-2.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                    title="Delete"
+                  >
+                    <FaTrash className="text-sm" />
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

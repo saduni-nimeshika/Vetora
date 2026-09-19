@@ -4,6 +4,7 @@ import api from '../api/axios';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FaSearch, FaMapMarkerAlt, FaStethoscope, FaDirections, FaUserMd, FaRuler, FaFilter, FaTimes } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -25,6 +26,15 @@ const doctorIcon = new L.Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
 });
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.07 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 14 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+};
 
 const LocationMarker = ({ position }) => {
   return position ? (
@@ -128,76 +138,90 @@ const DoctorSearch = () => {
   const activeFilterCount = ['district', 'city', 'specialisation'].filter((k) => searchParams[k]).length;
 
   return (
-    <div className="max-w-7xl mx-auto animate-fadeIn">
-      <div className="page-header">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-7xl mx-auto">
+      <motion.div variants={itemVariants} className="page-header">
         <div>
           <h1 className="page-title">
             <FaMapMarkerAlt className="text-primary-600" /> Find a Vet Near You
           </h1>
           <p className="page-subtitle">Search by location, and book directly from a doctor's profile</p>
         </div>
-        <button onClick={() => setShowFilters((s) => !s)} className="btn-secondary lg:hidden">
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowFilters((s) => !s)}
+          className="btn-secondary lg:hidden"
+        >
           <FaFilter /> Filters {activeFilterCount > 0 && <span className="badge-neutral">{activeFilterCount}</span>}
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       {/* Search Filters */}
-      <div className={`card mb-6 ${showFilters ? 'block' : 'hidden lg:block'}`}>
-        <form onSubmit={handleSearch} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-          <div className="form-group mb-0">
-            <label className="form-label">District</label>
-            <select name="district" value={searchParams.district} onChange={handleInputChange} className="select-field">
-              <option value="">All Districts</option>
-              {slDistricts.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
+      <motion.div variants={itemVariants} className={`${showFilters ? 'block' : 'hidden'} lg:block`}>
+        <div className="card mb-6">
+          <form onSubmit={handleSearch} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+            <div className="form-group mb-0">
+              <label className="form-label">District</label>
+              <select name="district" value={searchParams.district} onChange={handleInputChange} className="select-field">
+                <option value="">All Districts</option>
+                {slDistricts.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="form-group mb-0">
-            <label className="form-label">City</label>
-            <input
-              type="text" name="city" value={searchParams.city} onChange={handleInputChange}
-              placeholder="Any city" className="input-field"
-            />
-          </div>
+            <div className="form-group mb-0">
+              <label className="form-label">City</label>
+              <input
+                type="text" name="city" value={searchParams.city} onChange={handleInputChange}
+                placeholder="Any city" className="input-field"
+              />
+            </div>
 
-          <div className="form-group mb-0">
-            <label className="form-label">Specialisation</label>
-            <select name="specialisation" value={searchParams.specialisation} onChange={handleInputChange} className="select-field">
-              <option value="">All Specialisations</option>
-              {specialisations.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
+            <div className="form-group mb-0">
+              <label className="form-label">Specialisation</label>
+              <select name="specialisation" value={searchParams.specialisation} onChange={handleInputChange} className="select-field">
+                <option value="">All Specialisations</option>
+                {specialisations.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="form-group mb-0">
-            <label className="form-label">Radius: {searchParams.radius} km</label>
-            <input
-              type="range" name="radius" min="1" max="50" value={searchParams.radius}
-              onChange={handleInputChange}
-              disabled={!!(searchParams.district || searchParams.city)}
-              className="w-full accent-primary-600 h-2.5 disabled:opacity-40"
-            />
-            {(searchParams.district || searchParams.city) && (
-              <p className="text-[11px] text-ink-400 mt-1">Ignored while a District/City is picked</p>
-            )}
-          </div>
+            <div className="form-group mb-0">
+              <label className="form-label">Radius: {searchParams.radius} km</label>
+              <input
+                type="range" name="radius" min="1" max="50" value={searchParams.radius}
+                onChange={handleInputChange}
+                disabled={!!(searchParams.district || searchParams.city)}
+                className="w-full accent-primary-600 h-2.5 disabled:opacity-40"
+              />
+              {(searchParams.district || searchParams.city) && (
+                <p className="text-[11px] text-ink-400 mt-1">Ignored while a District/City is picked</p>
+              )}
+            </div>
 
-          <div className="flex gap-2">
-            <button type="submit" className="btn-primary flex-1"><FaSearch /> Search</button>
-            {activeFilterCount > 0 && (
-              <button type="button" onClick={clearFilters} className="btn-icon border border-ink-200" title="Clear filters">
-                <FaTimes />
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
+            <div className="flex gap-2">
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} type="submit" className="btn-primary flex-1">
+                <FaSearch /> Search
+              </motion.button>
+              {activeFilterCount > 0 && (
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  type="button"
+                  onClick={clearFilters}
+                  className="btn-icon border border-ink-200"
+                  title="Clear filters"
+                >
+                  <FaTimes />
+                </motion.button>
+              )}
+            </div>
+          </form>
+        </div>
+      </motion.div>
 
       {/* Map and Results */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <motion.div variants={itemVariants} className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <div className="rounded-2xl shadow-card overflow-hidden border border-ink-100" style={{ height: '520px' }}>
             {userLocation ? (
@@ -265,64 +289,71 @@ const DoctorSearch = () => {
                 <p className="text-ink-400 text-xs mt-1">Try a larger radius or different filters</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {doctors.map((doctor) => (
-                  <div
-                    key={doctor.id}
-                    className={`p-3.5 rounded-xl border transition cursor-pointer ${
-                      selectedDoctor?.id === doctor.id
-                        ? 'border-primary-400 bg-primary-50'
-                        : 'border-ink-100 hover:border-primary-200 hover:bg-ink-50'
-                    }`}
-                    onClick={() => setSelectedDoctor(doctor)}
-                  >
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <span className="avatar w-10 h-10 bg-primary-100 text-primary-700 shrink-0">
-                          <FaUserMd />
-                        </span>
-                        <div className="min-w-0">
-                          <h3 className="font-semibold text-ink-800 truncate">Dr. {doctor.user?.name}</h3>
-                          <p className="text-sm text-ink-500 truncate">{doctor.specialisation || 'General Practitioner'}</p>
-                          <p className="text-xs text-ink-400 truncate">{doctor.clinicName || `${doctor.city || ''}${doctor.city && doctor.district ? ', ' : ''}${doctor.district || ''}`}</p>
+              <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-3">
+                <AnimatePresence>
+                  {doctors.map((doctor) => (
+                    <motion.div
+                      key={doctor.id}
+                      variants={itemVariants}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      whileHover={{ x: 3 }}
+                      layout
+                      className={`p-3.5 rounded-xl border transition-colors cursor-pointer ${
+                        selectedDoctor?.id === doctor.id
+                          ? 'border-primary-400 bg-primary-50'
+                          : 'border-ink-100 hover:border-primary-200 hover:bg-ink-50'
+                      }`}
+                      onClick={() => setSelectedDoctor(doctor)}
+                    >
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <span className="avatar w-10 h-10 bg-primary-100 text-primary-700 shrink-0">
+                            <FaUserMd />
+                          </span>
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-ink-800 truncate">Dr. {doctor.user?.name}</h3>
+                            <p className="text-sm text-ink-500 truncate">{doctor.specialisation || 'General Practitioner'}</p>
+                            <p className="text-xs text-ink-400 truncate">{doctor.clinicName || `${doctor.city || ''}${doctor.city && doctor.district ? ', ' : ''}${doctor.district || ''}`}</p>
+                          </div>
                         </div>
+                        {doctor.distanceKm != null && (
+                          <span className="badge-info shrink-0 whitespace-nowrap">
+                            <FaRuler className="text-[9px]" /> {doctor.distanceKm} km
+                          </span>
+                        )}
                       </div>
-                      {doctor.distanceKm != null && (
-                        <span className="badge-info shrink-0 whitespace-nowrap">
-                          <FaRuler className="text-[9px]" /> {doctor.distanceKm} km
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-2.5 flex gap-3 pl-[52px]">
-                      <Link
-                        to={`/owner/doctors/${doctor.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-sm text-primary-600 hover:underline font-medium"
-                      >
-                        View Profile
-                      </Link>
-                      {doctor.latitude && doctor.longitude && (
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${doctor.latitude},${doctor.longitude}`}
-                          target="_blank" rel="noopener noreferrer"
+                      <div className="mt-2.5 flex gap-3 pl-[52px]">
+                        <Link
+                          to={`/owner/doctors/${doctor.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-sm text-ink-500 hover:text-ink-700 font-medium flex items-center gap-1"
+                          className="text-sm text-primary-600 hover:underline font-medium"
                         >
-                          <FaDirections /> Directions
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                          View Profile
+                        </Link>
+                        {doctor.latitude && doctor.longitude && (
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${doctor.latitude},${doctor.longitude}`}
+                            target="_blank" rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sm text-ink-500 hover:text-ink-700 font-medium flex items-center gap-1"
+                          >
+                            <FaDirections /> Directions
+                          </a>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
 export default DoctorSearch;
+
 
 
