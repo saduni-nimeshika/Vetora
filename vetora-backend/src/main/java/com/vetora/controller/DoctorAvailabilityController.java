@@ -106,6 +106,23 @@ public class DoctorAvailabilityController {
         }
     }
 
+    @GetMapping("/availability/my-pattern")
+    public ResponseEntity<?> getMyWeeklyPattern() {
+        try {
+            Doctor doctor = getCurrentDoctor();
+            Map<String, Object> pattern = new HashMap<>();
+            pattern.put("availableDays", doctor.getAvailableDays());
+            pattern.put("startTime", doctor.getAvailableStartTime());
+            pattern.put("endTime", doctor.getAvailableEndTime());
+            pattern.put("slotDuration", doctor.getSlotDuration());
+            return ResponseEntity.ok(pattern);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
     @GetMapping("/availability/my-availability")
     public ResponseEntity<?> getMyAvailability(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) String startDate,

@@ -10,6 +10,8 @@ public class AppointmentResponseDTO {
     private Long petId;
     private String petName;
     private String petSpecies;
+    private String petImage;
+    private String ownerName;
     private Long doctorId;
     private String doctorName;
     private LocalDate appointmentDate;
@@ -25,6 +27,7 @@ public class AppointmentResponseDTO {
     public AppointmentResponseDTO() {}
 
     public AppointmentResponseDTO(Long id, Long petId, String petName, String petSpecies,
+                                  String petImage, String ownerName,
                                   Long doctorId, String doctorName, LocalDate appointmentDate,
                                   LocalTime appointmentTime, LocalDateTime appointmentDateTime,
                                   String status, String notes, String rejectionReason,
@@ -33,6 +36,8 @@ public class AppointmentResponseDTO {
         this.petId = petId;
         this.petName = petName;
         this.petSpecies = petSpecies;
+        this.petImage = petImage;
+        this.ownerName = ownerName;
         this.doctorId = doctorId;
         this.doctorName = doctorName;
         this.appointmentDate = appointmentDate;
@@ -57,6 +62,12 @@ public class AppointmentResponseDTO {
 
     public String getPetSpecies() { return petSpecies; }
     public void setPetSpecies(String petSpecies) { this.petSpecies = petSpecies; }
+
+    public String getPetImage() { return petImage; }
+    public void setPetImage(String petImage) { this.petImage = petImage; }
+
+    public String getOwnerName() { return ownerName; }
+    public void setOwnerName(String ownerName) { this.ownerName = ownerName; }
 
     public Long getDoctorId() { return doctorId; }
     public void setDoctorId(Long doctorId) { this.doctorId = doctorId; }
@@ -88,3 +99,4 @@ public class AppointmentResponseDTO {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
+

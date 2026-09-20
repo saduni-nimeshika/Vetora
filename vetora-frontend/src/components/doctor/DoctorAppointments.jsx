@@ -1,30 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { FaCalendar, FaCheck, FaTimes, FaSync, FaEye } from 'react-icons/fa';
+import {
+  FaCalendarCheck, FaCheck, FaTimes, FaSync, FaSearch,
+  FaPaw, FaUser, FaClock, FaCheckCircle,
+} from 'react-icons/fa';
 import toast from 'react-hot-toast';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+};
+
+const statusTabs = ['ALL', 'PENDING', 'APPROVED', 'COMPLETED', 'REJECTED', 'CANCELLED'];
 
 const DoctorAppointments = () => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchAppointments();
   }, []);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = async (isRefresh = false) => {
     try {
-      setLoading(true);
-      // ✅ Check if token exists
+      isRefresh ? setRefreshing(true) : setLoading(true);
       const token = localStorage.getItem('token');
       if (!token) {
         toast.error('Please login again');
         return;
       }
-      
       const res = await api.get('/api/v1/doctor/appointments');
       setAppointments(res.data?.appointments || []);
     } catch (error) {
@@ -36,152 +52,248 @@ const DoctorAppointments = () => {
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const handleStatusUpdate = async (appointmentId, status) => {
     setUpdating(appointmentId);
     try {
-      // ✅ Check if token exists
       const token = localStorage.getItem('token');
       if (!token) {
         toast.error('Please login again');
         setUpdating(null);
         return;
       }
-
-      const response = await api.put(`/api/v1/doctor/appointments/${appointmentId}/status?status=${status}`);
-      
-      toast.success(`✅ Appointment ${status.toLowerCase()} successfully!`);
-      fetchAppointments();
+      await api.put(`/api/v1/doctor/appointments/${appointmentId}/status?status=${status}`);
+      toast.success(`Appointment ${status.toLowerCase()}`);
+      fetchAppointments(true);
     } catch (error) {
       console.error('Error updating status:', error);
-      
       if (error.response?.status === 403) {
-        toast.error('❌ Please login as Doctor to perform this action');
+        toast.error('Please login as Doctor to perform this action');
       } else if (error.response?.status === 404) {
-        toast.error('❌ Appointment not found');
+        toast.error('Appointment not found');
       } else {
-        toast.error(error.response?.data?.message || '❌ Failed to update status');
+        toast.error(error.response?.data?.message || 'Failed to update status');
       }
     } finally {
       setUpdating(null);
     }
   };
 
-  const getStatusColor = (status) => {
-    if (status === 'APPROVED') return 'bg-emerald-100 text-emerald-700';
-    if (status === 'PENDING') return 'bg-orange-100 text-orange-700';
-    if (status === 'REJECTED') return 'bg-red-100 text-red-700';
-    if (status === 'CANCELLED') return 'bg-gray-100 text-gray-700';
-    if (status === 'COMPLETED') return 'bg-blue-100 text-blue-700';
-    return 'bg-gray-100 text-gray-700';
+  const getStatusBadge = (status) => {
+    if (status === 'APPROVED') return 'badge-success';
+    if (status === 'PENDING') return 'badge-warning';
+    if (status === 'REJECTED') return 'badge-danger';
+    if (status === 'CANCELLED') return 'badge-neutral';
+    if (status === 'COMPLETED') return 'badge-info';
+    return 'badge-neutral';
+  };
+
+  const counts = useMemo(() => {
+    const c = { ALL: appointments.length };
+    statusTabs.slice(1).forEach((s) => {
+      c[s] = appointments.filter((a) => a.status === s).length;
+    });
+    return c;
+  }, [appointments]);
+
+  const filtered = useMemo(() => {
+    let list = appointments;
+    if (statusFilter !== 'ALL') list = list.filter((a) => a.status === statusFilter);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (a) => a.petName?.toLowerCase().includes(q) || a.ownerName?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [appointments, statusFilter, search]);
+
+  const ActionButtons = ({ app }) => (
+    <div className="flex gap-2 items-center justify-end">
+      {app.status === 'PENDING' && (
+        <>
+          <button
+            onClick={() => handleStatusUpdate(app.id, 'APPROVED')}
+            disabled={updating === app.id}
+            className="p-2 bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors disabled:opacity-50"
+            title="Approve"
+          >
+            <FaCheck className="text-sm" />
+          </button>
+          <button
+            onClick={() => handleStatusUpdate(app.id, 'REJECTED')}
+            disabled={updating === app.id}
+            className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+            title="Reject"
+          >
+            <FaTimes className="text-sm" />
+          </button>
+        </>
+      )}
+      {app.status === 'APPROVED' && (
+        <button
+          onClick={() => handleStatusUpdate(app.id, 'COMPLETED')}
+          disabled={updating === app.id}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 text-xs font-semibold"
+        >
+          <FaCheckCircle className="text-xs" /> Complete
+        </button>
+      )}
+    </div>
+  );
+
+  const PetIdentity = ({ app, size = 'md' }) => {
+    const dims = size === 'sm' ? 'w-10 h-10' : 'w-9 h-9';
+    const avatar = app.petImage ? (
+      <img src={app.petImage} alt={app.petName} className={`${dims} rounded-xl object-cover shrink-0`} />
+    ) : (
+      <span className={`${dims} rounded-xl bg-primary-100 text-primary-600 flex items-center justify-center shrink-0`}>
+        <FaPaw className="text-sm" />
+      </span>
+    );
+    const content = (
+      <div className="flex items-center gap-2.5">
+        {avatar}
+        <span className="font-semibold text-ink-800 hover:text-primary-600 transition-colors">{app.petName}</span>
+      </div>
+    );
+    return app.petId ? (
+      <Link to={`/doctor/patients/${app.petId}`} title="View patient profile">
+        {content}
+      </Link>
+    ) : (
+      content
+    );
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <FaCalendar className="text-emerald-600" />
-          My Appointments
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-6xl mx-auto">
+      <motion.div variants={itemVariants} className="page-header">
+        <h1 className="page-title">
+          <FaCalendarCheck className="text-primary-600" /> My Appointments
         </h1>
-        <button
-          onClick={fetchAppointments}
-          className="text-gray-500 hover:text-gray-700 transition"
-          disabled={loading}
-        >
-          <FaSync className={loading ? 'animate-spin' : ''} />
-        </button>
-      </div>
-
-      {appointments.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-lg p-12 text-center text-gray-500">
-          <p>No appointments found</p>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="input-icon-wrap flex-1 sm:w-56">
+            <FaSearch className="field-icon" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-field-icon"
+              placeholder="Search pet or owner..."
+            />
+          </div>
+          <motion.button
+            whileTap={{ rotate: 180 }}
+            onClick={() => fetchAppointments(true)}
+            disabled={refreshing}
+            className="btn-icon border border-ink-200 shrink-0"
+            title="Refresh"
+          >
+            <FaSync className={refreshing ? 'animate-spin' : ''} />
+          </motion.button>
         </div>
+      </motion.div>
+
+      {/* Status filter tabs */}
+      <motion.div variants={itemVariants} className="flex flex-wrap gap-2 mb-6">
+        {statusTabs.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setStatusFilter(tab)}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              statusFilter === tab
+                ? 'bg-primary-600 text-white shadow-soft'
+                : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+            }`}
+          >
+            {tab.charAt(0) + tab.slice(1).toLowerCase()}
+            <span className="ml-1 opacity-70">({counts[tab] ?? 0})</span>
+          </button>
+        ))}
+      </motion.div>
+
+      {filtered.length === 0 ? (
+        <motion.div variants={itemVariants} className="empty-state">
+          <FaCalendarCheck className="text-5xl text-ink-300 mb-3" />
+          <p className="text-ink-500">
+            {appointments.length === 0 ? 'No appointments found' : 'No appointments match your filters'}
+          </p>
+        </motion.div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
+        <>
+          {/* Desktop table */}
+          <motion.div variants={itemVariants} className="hidden md:block table-wrap">
+            <table className="table-base">
+              <thead>
                 <tr>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Pet</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Owner</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Date</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Time</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Status</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Actions</th>
+                  <th>Pet</th>
+                  <th>Owner</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {appointments.map((app) => (
-                  <tr key={app.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="p-3 font-medium text-gray-800">{app.petName}</td>
-                    <td className="p-3 text-gray-600">{app.ownerName || 'N/A'}</td>
-                    <td className="p-3 text-gray-600">{app.appointmentDate}</td>
-                    <td className="p-3 text-gray-600">{app.appointmentTime}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(app.status)}`}>
-                        {app.status}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex gap-2 items-center">
-                        {app.petId && (
-                          <Link
-                            to={`/doctor/patients/${app.petId}`}
-                            className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition"
-                            title="View Patient Profile"
-                          >
-                            <FaEye />
-                          </Link>
-                        )}
-                        {app.status === 'PENDING' && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleStatusUpdate(app.id, 'APPROVED')}
-                            disabled={updating === app.id}
-                            className="p-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition disabled:opacity-50"
-                            title="Approve"
-                          >
-                            {updating === app.id ? '...' : <FaCheck />}
-                          </button>
-                          <button
-                            onClick={() => handleStatusUpdate(app.id, 'REJECTED')}
-                            disabled={updating === app.id}
-                            className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition disabled:opacity-50"
-                            title="Reject"
-                          >
-                            {updating === app.id ? '...' : <FaTimes />}
-                          </button>
-                        </div>
-                      )}
-                        {app.status === 'APPROVED' && (
-                          <button
-                            onClick={() => handleStatusUpdate(app.id, 'COMPLETED')}
-                            disabled={updating === app.id}
-                            className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition disabled:opacity-50 text-sm"
-                          >
-                            {updating === app.id ? '...' : '✅ Complete'}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                <AnimatePresence>
+                  {filtered.map((app) => (
+                    <motion.tr key={app.id} layout exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                      <td><PetIdentity app={app} /></td>
+                      <td className="text-ink-500">{app.ownerName || 'N/A'}</td>
+                      <td className="text-ink-500">{app.appointmentDate}</td>
+                      <td className="text-ink-500">{app.appointmentTime}</td>
+                      <td>
+                        <span className={getStatusBadge(app.status)}>{app.status}</span>
+                      </td>
+                      <td>
+                        <ActionButtons app={app} />
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
               </tbody>
             </table>
-          </div>
-        </div>
+          </motion.div>
+
+          {/* Mobile cards */}
+          <motion.div variants={containerVariants} className="md:hidden space-y-3">
+            <AnimatePresence>
+              {filtered.map((app) => (
+                <motion.div key={app.id} variants={itemVariants} exit={{ opacity: 0, scale: 0.95 }} className="card-hover">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <PetIdentity app={app} size="sm" />
+                      <p className="text-xs text-ink-400 flex items-center gap-1 mt-1 ml-0.5">
+                        <FaUser className="text-[10px]" /> {app.ownerName || 'N/A'}
+                      </p>
+                    </div>
+                    <span className={getStatusBadge(app.status)}>{app.status}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-ink-100">
+                    <p className="text-sm text-ink-500 flex items-center gap-1.5">
+                      <FaClock className="text-primary-400 text-xs" /> {app.appointmentDate} at {app.appointmentTime}
+                    </p>
+                    <ActionButtons app={app} />
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        </>
       )}
-    </div>
+    </motion.div>
   );
 };
 

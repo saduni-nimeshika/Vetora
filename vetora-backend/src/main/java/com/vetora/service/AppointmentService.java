@@ -351,11 +351,15 @@ public class AppointmentService {
 
     // ✅ Convert Entity to Response DTO
     private AppointmentResponseDTO convertToResponseDTO(Appointment appointment) {
+        Pet pet = appointment.getPet();
+        String ownerName = (pet != null && pet.getOwner() != null) ? pet.getOwner().getName() : null;
         return new AppointmentResponseDTO(
                 appointment.getId(),
-                appointment.getPet().getId(),
-                appointment.getPet().getName(),
-                appointment.getPet().getSpecies(),
+                pet.getId(),
+                pet.getName(),
+                pet.getSpecies(),
+                pet.getProfileImage(),
+                ownerName,
                 appointment.getDoctor().getId(),
                 appointment.getDoctor().getName(),
                 appointment.getAppointmentDate(),
@@ -369,3 +373,4 @@ public class AppointmentService {
         );
     }
 }
+

@@ -1,10 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { FaClock, FaSave, FaChevronLeft, FaChevronRight, FaBan, FaCalendarCheck, FaTimes } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 const weekDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+};
 
 // Build a YYYY-MM-DD string from local date parts — avoids UTC shift from toISOString()
 const toISODate = (date) => {
@@ -22,12 +32,35 @@ const DoctorAvailability = () => {
 
   // ===== Weekly pattern =====
   const [loading, setLoading] = useState(false);
+  const [patternLoading, setPatternLoading] = useState(true);
   const [availability, setAvailability] = useState({
     availableDays: ['MON', 'TUE', 'WED', 'THU', 'FRI'],
     startTime: '09:00',
     endTime: '17:00',
     slotDuration: 30
   });
+
+  useEffect(() => {
+    fetchMyPattern();
+  }, []);
+
+  const fetchMyPattern = async () => {
+    try {
+      setPatternLoading(true);
+      const res = await api.get('/api/v1/doctor/availability/my-pattern');
+      const p = res.data || {};
+      setAvailability({
+        availableDays: p.availableDays ? p.availableDays.split(',').filter(Boolean) : ['MON', 'TUE', 'WED', 'THU', 'FRI'],
+        startTime: p.startTime || '09:00',
+        endTime: p.endTime || '17:00',
+        slotDuration: p.slotDuration || 30,
+      });
+    } catch (error) {
+      // No saved pattern yet — keep the sensible defaults
+    } finally {
+      setPatternLoading(false);
+    }
+  };
 
   const handleToggleDay = (day) => {
     setAvailability(prev => ({
@@ -48,7 +81,7 @@ const DoctorAvailability = () => {
         slotDuration: availability.slotDuration
       };
       await api.put('/api/v1/doctor/availability', data);
-      toast.success('✅ Availability saved successfully!');
+      toast.success('Availability saved successfully!');
       fetchMonthAvailability();
     } catch (error) {
       if (error.response?.status === 401) {
@@ -56,7 +89,7 @@ const DoctorAvailability = () => {
       } else if (error.response?.status === 403) {
         toast.error('You are not authorized. Please login as Doctor.');
       } else {
-        toast.error(error.response?.data?.message || '❌ Failed to save availability');
+        toast.error(error.response?.data?.message || 'Failed to save availability');
       }
     } finally {
       setLoading(false);
@@ -113,14 +146,14 @@ const DoctorAvailability = () => {
           date: selectedDate,
           reason: exceptionForm.reason || 'Unavailable',
         });
-        toast.success('✅ Marked as unavailable');
+        toast.success('Marked as unavailable');
       } else {
         await api.post('/api/v1/doctor/availability/special-available', {
           date: selectedDate,
           startTime: exceptionForm.startTime,
           endTime: exceptionForm.endTime,
         });
-        toast.success('✅ Special hours added');
+        toast.success('Special hours added');
       }
       setSelectedDate(null);
       fetchMonthAvailability();
@@ -148,38 +181,45 @@ const DoctorAvailability = () => {
     if (isPast) return 'bg-ink-50 text-ink-300 cursor-not-allowed';
     if (!dayInfo) return 'bg-white text-ink-600 hover:bg-ink-50 border-ink-100';
     if (dayInfo.available && dayInfo.isSpecial) return 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100';
-    if (dayInfo.available) return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
+    if (dayInfo.available) return 'bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100';
     return 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100';
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div>
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-4xl mx-auto space-y-6">
+      <motion.div variants={itemVariants}>
         <h1 className="page-title mb-1">
           <FaClock className="text-primary-600" />
           Set Your Availability
         </h1>
         <p className="page-subtitle">Set your weekly working pattern, then fine-tune specific dates below</p>
-      </div>
+      </motion.div>
 
       {/* ===== Weekly Pattern ===== */}
-      <div className="card">
+      <motion.div variants={itemVariants} className="card relative">
+        {patternLoading && (
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-2xl flex items-center justify-center z-10">
+            <div className="spinner w-8 h-8" />
+          </div>
+        )}
         <h2 className="section-title">Weekly Pattern</h2>
         <div className="mb-6">
           <label className="form-label">Available Days</label>
           <div className="flex flex-wrap gap-2">
             {weekDays.map((day) => (
-              <button
+              <motion.button
                 key={day}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => handleToggleDay(day)}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                   availability.availableDays.includes(day)
-                    ? 'bg-primary-600 text-white'
+                    ? 'bg-primary-600 text-white shadow-soft'
                     : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
                 }`}
               >
                 {day}
-              </button>
+              </motion.button>
             ))}
           </div>
         </div>
@@ -219,22 +259,37 @@ const DoctorAvailability = () => {
           </select>
         </div>
 
-        <button onClick={handleSave} disabled={loading} className="btn-primary w-full">
+        <motion.button
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleSave}
+          disabled={loading}
+          className="btn-primary w-full"
+        >
           <FaSave />
           {loading ? 'Saving...' : 'Save Weekly Pattern'}
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       {/* ===== Month Calendar for date-specific exceptions ===== */}
-      <div className="card">
+      <motion.div variants={itemVariants} className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="section-title mb-0">Specific Dates</h2>
           <div className="flex items-center gap-2">
-            <button onClick={() => changeMonth(-1)} className="btn-icon"><FaChevronLeft /></button>
-            <span className="font-semibold text-ink-800 w-36 text-center">
-              {viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-            </span>
-            <button onClick={() => changeMonth(1)} className="btn-icon"><FaChevronRight /></button>
+            <motion.button whileTap={{ scale: 0.9 }} onClick={() => changeMonth(-1)} className="btn-icon"><FaChevronLeft /></motion.button>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={viewDate.toISOString()}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.2 }}
+                className="font-semibold text-ink-800 w-36 text-center"
+              >
+                {viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+              </motion.span>
+            </AnimatePresence>
+            <motion.button whileTap={{ scale: 0.9 }} onClick={() => changeMonth(1)} className="btn-icon"><FaChevronRight /></motion.button>
           </div>
         </div>
 
@@ -244,7 +299,7 @@ const DoctorAvailability = () => {
 
         {/* Legend */}
         <div className="flex flex-wrap gap-4 mb-4 text-xs text-ink-500">
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 inline-block" /> Available</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-primary-100 border border-primary-300 inline-block" /> Available</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block" /> Unavailable</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-100 border border-blue-300 inline-block" /> Special hours</span>
         </div>
@@ -260,7 +315,12 @@ const DoctorAvailability = () => {
                 <div key={d} className="text-center text-xs font-semibold text-ink-400 py-1">{d}</div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-1.5">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={{ visible: { transition: { staggerChildren: 0.012 } } }}
+              className="grid grid-cols-7 gap-1.5"
+            >
               {buildCalendarCells().map((date, idx) => {
                 if (!date) return <div key={`blank-${idx}`} />;
                 const dateISO = toISODate(date);
@@ -268,88 +328,124 @@ const DoctorAvailability = () => {
                 const isPast = dateISO < todayISO;
                 const isToday = dateISO === todayISO;
                 return (
-                  <button
+                  <motion.button
                     key={dateISO}
+                    variants={itemVariants}
+                    whileHover={!isPast ? { scale: 1.08 } : {}}
+                    whileTap={!isPast ? { scale: 0.94 } : {}}
                     disabled={isPast}
                     onClick={() => setSelectedDate(selectedDate === dateISO ? null : dateISO)}
-                    className={`relative aspect-square rounded-lg border text-sm font-medium transition flex items-center justify-center ${cellStyle(dateISO, dayInfo, isPast)} ${selectedDate === dateISO ? 'ring-2 ring-primary-500' : ''} ${isToday ? 'font-bold' : ''}`}
+                    className={`relative aspect-square rounded-lg border text-sm font-medium transition-colors flex items-center justify-center ${cellStyle(dateISO, dayInfo, isPast)} ${selectedDate === dateISO ? 'ring-2 ring-primary-500' : ''} ${isToday ? 'font-bold' : ''}`}
                     title={dayInfo?.reason || (dayInfo?.available ? 'Available' : '')}
                   >
                     {date.getDate()}
-                  </button>
+                  </motion.button>
                 );
               })}
-            </div>
+            </motion.div>
           </>
         )}
 
         {/* Inline action panel for the selected date */}
-        {selectedDate && selectedDate >= todayISO && (
-          <div className="mt-5 p-4 bg-ink-50 rounded-xl border border-ink-100 animate-slideDown">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-ink-800">
-                {new Date(selectedDate + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-              </h3>
-              <button onClick={() => setSelectedDate(null)} className="btn-icon !w-8 !h-8"><FaTimes /></button>
-            </div>
-
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => setExceptionMode('unavailable')}
-                className={exceptionMode === 'unavailable' ? 'btn-danger btn-sm' : 'btn-ghost btn-sm border border-ink-200'}
-              >
-                <FaBan /> Mark Unavailable
-              </button>
-              <button
-                onClick={() => setExceptionMode('special')}
-                className={exceptionMode === 'special' ? 'btn-primary btn-sm' : 'btn-ghost btn-sm border border-ink-200'}
-              >
-                <FaCalendarCheck /> Special Hours
-              </button>
-            </div>
-
-            {exceptionMode === 'unavailable' ? (
-              <div className="form-group">
-                <label className="form-label">Reason (optional)</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. On leave, Conference"
-                  value={exceptionForm.reason}
-                  onChange={(e) => setExceptionForm({ ...exceptionForm, reason: e.target.value })}
-                />
-              </div>
-            ) : (
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="form-group mb-0">
-                  <label className="form-label">Start Time</label>
-                  <input
-                    type="time"
-                    className="input-field"
-                    value={exceptionForm.startTime}
-                    onChange={(e) => setExceptionForm({ ...exceptionForm, startTime: e.target.value })}
-                  />
+        <AnimatePresence>
+          {selectedDate && selectedDate >= todayISO && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, marginTop: 0 }}
+              animate={{ opacity: 1, height: 'auto', marginTop: 20 }}
+              exit={{ opacity: 0, height: 0, marginTop: 0 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+              className="overflow-hidden"
+            >
+              <div className="p-4 bg-ink-50 rounded-xl border border-ink-100">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-ink-800">
+                    {new Date(selectedDate + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                  </h3>
+                  <button onClick={() => setSelectedDate(null)} className="btn-icon !w-8 !h-8"><FaTimes /></button>
                 </div>
-                <div className="form-group mb-0">
-                  <label className="form-label">End Time</label>
-                  <input
-                    type="time"
-                    className="input-field"
-                    value={exceptionForm.endTime}
-                    onChange={(e) => setExceptionForm({ ...exceptionForm, endTime: e.target.value })}
-                  />
-                </div>
-              </div>
-            )}
 
-            <button onClick={submitException} disabled={savingException} className="btn-primary w-full mt-4">
-              {savingException ? 'Saving...' : 'Confirm'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => setExceptionMode('unavailable')}
+                    className={exceptionMode === 'unavailable' ? 'btn-danger btn-sm' : 'btn-ghost btn-sm border border-ink-200'}
+                  >
+                    <FaBan /> Mark Unavailable
+                  </button>
+                  <button
+                    onClick={() => setExceptionMode('special')}
+                    className={exceptionMode === 'special' ? 'btn-primary btn-sm' : 'btn-ghost btn-sm border border-ink-200'}
+                  >
+                    <FaCalendarCheck /> Special Hours
+                  </button>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {exceptionMode === 'unavailable' ? (
+                    <motion.div
+                      key="unavailable"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="form-group"
+                    >
+                      <label className="form-label">Reason (optional)</label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        placeholder="e.g. On leave, Conference"
+                        value={exceptionForm.reason}
+                        onChange={(e) => setExceptionForm({ ...exceptionForm, reason: e.target.value })}
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="special"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="grid sm:grid-cols-2 gap-4"
+                    >
+                      <div className="form-group mb-0">
+                        <label className="form-label">Start Time</label>
+                        <input
+                          type="time"
+                          className="input-field"
+                          value={exceptionForm.startTime}
+                          onChange={(e) => setExceptionForm({ ...exceptionForm, startTime: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group mb-0">
+                        <label className="form-label">End Time</label>
+                        <input
+                          type="time"
+                          className="input-field"
+                          value={exceptionForm.endTime}
+                          onChange={(e) => setExceptionForm({ ...exceptionForm, endTime: e.target.value })}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={submitException}
+                  disabled={savingException}
+                  className="btn-primary w-full mt-4"
+                >
+                  {savingException ? 'Saving...' : 'Confirm'}
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </motion.div>
   );
 };
 
 export default DoctorAvailability;
+
