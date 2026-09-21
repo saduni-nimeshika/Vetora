@@ -50,6 +50,7 @@ public class DoctorController {
             response.put("yearsOfExperience", doctor.getYearsOfExperience());
             response.put("clinicName", doctor.getClinicName());
             response.put("clinicAddress", doctor.getClinicAddress());
+            response.put("profileImage", doctor.getProfileImage());
             response.put("city", doctor.getCity());
             response.put("district", doctor.getDistrict());
             response.put("latitude", doctor.getLatitude());
@@ -89,6 +90,15 @@ public class DoctorController {
             }
             if (request.containsKey("qualifications")) {
                 doctor.setQualifications((String) request.get("qualifications"));
+            }
+            if (request.containsKey("yearsOfExperience") && request.get("yearsOfExperience") != null) {
+                doctor.setYearsOfExperience(Integer.valueOf(request.get("yearsOfExperience").toString()));
+            }
+            if (request.containsKey("slvcRegistrationNumber")) {
+                doctor.setSlvcRegistrationNumber((String) request.get("slvcRegistrationNumber"));
+            }
+            if (request.containsKey("profileImage") && request.get("profileImage") != null) {
+                doctor.setProfileImage((String) request.get("profileImage"));
             }
             if (request.containsKey("clinicName")) {
                 doctor.setClinicName((String) request.get("clinicName"));

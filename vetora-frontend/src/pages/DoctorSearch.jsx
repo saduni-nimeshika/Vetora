@@ -307,8 +307,12 @@ const DoctorSearch = () => {
                     >
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex items-start gap-3 min-w-0">
-                          <span className="avatar w-10 h-10 bg-primary-100 text-primary-700 shrink-0">
-                            <FaUserMd />
+                          <span className="avatar w-10 h-10 bg-primary-100 text-primary-700 shrink-0 overflow-hidden">
+                            {doctor.profileImage && doctor.profileImage !== 'default-avatar.png' ? (
+                              <img src={doctor.profileImage} alt={doctor.user?.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <FaUserMd />
+                            )}
                           </span>
                           <div className="min-w-0">
                             <h3 className="font-semibold text-ink-800 truncate">Dr. {doctor.user?.name}</h3>
@@ -354,6 +358,7 @@ const DoctorSearch = () => {
 };
 
 export default DoctorSearch;
+
 
 
 

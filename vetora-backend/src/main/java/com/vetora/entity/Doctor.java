@@ -33,6 +33,7 @@ public class Doctor {
     private Double latitude;
     private Double longitude;
 
+    @Column(name = "profile_image", columnDefinition = "LONGTEXT")
     private String profileImage = "default-avatar.png";
 
     @Column(name = "is_approved", nullable = false)

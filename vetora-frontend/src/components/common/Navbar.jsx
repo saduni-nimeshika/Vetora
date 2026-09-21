@@ -138,8 +138,12 @@ const Navbar = () => {
                   onClick={() => setMenuOpen((o) => !o)}
                   className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors"
                 >
-                  <span className="avatar w-8 h-8 bg-white/90 text-primary-700 text-xs">
-                    {initials}
+                  <span className="avatar w-8 h-8 bg-white/90 text-primary-700 text-xs overflow-hidden">
+                    {user?.profileImage && user.profileImage !== 'default-avatar.png' ? (
+                      <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      initials
+                    )}
                   </span>
                   <span className="text-sm font-medium text-white max-w-[120px] truncate">
                     {user?.name}
@@ -196,7 +200,13 @@ const Navbar = () => {
             {isAuthenticated ? (
               <>
                 <div className="flex items-center gap-3 px-3 py-3 mb-1 border-b border-white/10">
-                  <span className="avatar w-10 h-10 bg-white/90 text-primary-700">{initials}</span>
+                  <span className="avatar w-10 h-10 bg-white/90 text-primary-700 overflow-hidden">
+                    {user?.profileImage && user.profileImage !== 'default-avatar.png' ? (
+                      <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      initials
+                    )}
+                  </span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
                     <p className="text-xs text-white/60 truncate">{user?.role?.replace('_', ' ')}</p>

@@ -43,7 +43,7 @@ const colorMap = {
 };
 
 const DoctorDashboard = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [stats, setStats] = useState({ appointments: 0, pending: 0, completed: 0, reminders: 0 });
   const [loading, setLoading] = useState(true);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
@@ -52,7 +52,23 @@ const DoctorDashboard = () => {
 
   useEffect(() => {
     fetchData();
+    fetchAvatar();
   }, []);
+
+  // The logged-in user object only has id/name/email/role — pull the doctor's
+  // saved photo separately and cache it on the shared user object so the
+  // Navbar (and any other page) shows the same photo without refetching.
+  const fetchAvatar = async () => {
+    if (user?.profileImage) return; // already cached this session
+    try {
+      const res = await api.get('/api/v1/doctor/profile');
+      if (res.data?.profileImage) {
+        updateUser({ profileImage: res.data.profileImage });
+      }
+    } catch (error) {
+      // Non-critical — the header just falls back to initials
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -130,8 +146,12 @@ const DoctorDashboard = () => {
       {/* Header */}
       <motion.div variants={itemVariants} className="page-header">
         <div className="flex items-center gap-3.5">
-          <span className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 text-white flex items-center justify-center font-bold shadow-glow shrink-0">
-            {initials}
+          <span className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 text-white flex items-center justify-center font-bold shadow-glow shrink-0 overflow-hidden">
+            {user?.profileImage && user.profileImage !== 'default-avatar.png' ? (
+              <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
+            ) : (
+              initials
+            )}
           </span>
           <div>
             <h1 className="text-2xl font-extrabold text-ink-900 font-display">Welcome, Dr. {user?.name}</h1>
@@ -287,4 +307,5 @@ const DoctorDashboard = () => {
 };
 
 export default DoctorDashboard;
+
 

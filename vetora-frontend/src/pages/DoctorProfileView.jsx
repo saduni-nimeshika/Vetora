@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { 
-  FaUserMd, FaStethoscope, FaHospital, FaMapMarkerAlt, 
-  FaPhone, FaEnvelope, FaClock, FaCalendar, FaArrowLeft,
-  FaEdit, FaShareAlt, FaHeart, FaGraduationCap, FaBriefcase,
-  FaMapPin, FaDirections, FaCalendarCheck, FaInfoCircle,
-  FaCheckCircle, FaUser, FaCamera, FaSave, FaTimes, FaCrosshairs
+import {
+  FaUserMd, FaHospital, FaMapMarkerAlt,
+  FaArrowLeft,
+  FaEdit, FaGraduationCap,
+  FaMapPin, FaInfoCircle,
+  FaCheckCircle, FaCamera, FaSave, FaTimes, FaCrosshairs
 } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
@@ -35,14 +36,29 @@ const LocationPicker = ({ onPick }) => {
   return null;
 };
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+};
+
 const DoctorProfileView = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [doctor, setDoctor] = useState(null);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [locating, setLocating] = useState(false);
+
+  // Photo upload
+  const fileInputRef = useRef(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     fetchDoctorProfile();
@@ -66,11 +82,33 @@ const DoctorProfileView = () => {
     setEditing(!editing);
     if (!editing) {
       setFormData(doctor);
+    } else {
+      setImageFile(null);
+      setImagePreview(null);
     }
   };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB');
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
   };
 
   const handlePickLocation = (lat, lng) => {
@@ -91,7 +129,7 @@ const DoctorProfileView = () => {
           longitude: pos.coords.longitude,
         }));
         setLocating(false);
-        toast.success('📍 Location captured — don\'t forget to save');
+        toast.success('Location captured — don\'t forget to save');
       },
       () => {
         setLocating(false);
@@ -103,23 +141,39 @@ const DoctorProfileView = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setLoading(true);
-      await api.put('/api/v1/doctor/profile', formData);
-      setDoctor(formData);
+      setSaving(true);
+
+      let profileImage = formData.profileImage;
+      if (imageFile) {
+        const reader = new FileReader();
+        profileImage = await new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(imageFile);
+        });
+      }
+
+      const payload = { ...formData, profileImage };
+      await api.put('/api/v1/doctor/profile', payload);
+
+      setDoctor(payload);
+      setFormData(payload);
+      updateUser({ profileImage });
+      setImageFile(null);
+      setImagePreview(null);
       setEditing(false);
-      toast.success('✅ Profile updated successfully!');
+      toast.success('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('❌ Failed to update profile');
+      toast.error(error.response?.data?.error || 'Failed to update profile');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="spinner w-12 h-12" />
       </div>
     );
   }
@@ -127,295 +181,339 @@ const DoctorProfileView = () => {
   if (!doctor) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Profile not found</p>
+        <p className="text-ink-500">Profile not found</p>
       </div>
     );
   }
 
+  const displayImage = imagePreview || formData.profileImage || doctor.profileImage;
+  const hasRealImage = displayImage && displayImage !== 'default-avatar.png';
+
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-5xl mx-auto">
+      <motion.div variants={itemVariants} className="page-header">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/doctor/dashboard')}
-            className="text-gray-600 hover:text-gray-800 transition"
+            className="btn-icon"
           >
             <FaArrowLeft />
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">My Profile</h1>
+          <h1 className="text-2xl font-extrabold text-ink-900 font-display">My Profile</h1>
         </div>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
           onClick={handleEditToggle}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
-            editing 
-              ? 'bg-red-600 hover:bg-red-700 text-white' 
-              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-          }`}
+          className={editing ? 'btn-danger' : 'btn-primary'}
         >
           {editing ? <FaTimes /> : <FaEdit />}
           {editing ? 'Cancel' : 'Edit Profile'}
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       {/* Profile Card */}
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-emerald-600 to-emerald-800 h-32"></div>
+      <motion.div variants={itemVariants} className="bg-white rounded-2xl shadow-elevated overflow-hidden">
+        <div className="bg-gradient-to-r from-primary-600 to-primary-800 h-32 relative overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        </div>
         <div className="px-6 pb-6">
           <div className="flex justify-between items-start">
             <div className="relative -mt-16">
-              <div className="w-32 h-32 rounded-full border-4 border-white bg-white overflow-hidden">
-                {doctor.profileImage ? (
-                  <img src={doctor.profileImage} alt={doctor.user?.name} className="w-full h-full object-cover" />
+              <div className="w-32 h-32 rounded-full border-4 border-white bg-white overflow-hidden shadow-elevated">
+                {hasRealImage ? (
+                  <img src={displayImage} alt={doctor.user?.name} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-5xl text-emerald-600 bg-emerald-50">
+                  <div className="w-full h-full flex items-center justify-center text-5xl text-primary-600 bg-primary-50">
                     <FaUserMd />
                   </div>
                 )}
               </div>
-              <button
-                className="absolute bottom-2 right-2 bg-emerald-600 text-white p-1.5 rounded-full hover:bg-emerald-700 transition"
-                onClick={() => toast.info('Upload photo feature coming soon!')}
-              >
-                <FaCamera size={14} />
-              </button>
+              {editing && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="absolute bottom-2 right-2 bg-primary-600 text-white p-2 rounded-full hover:bg-primary-700 transition-colors shadow-glow"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Change photo"
+                  >
+                    <FaCamera size={14} />
+                  </motion.button>
+                </>
+              )}
             </div>
             <div className="mt-4">
-              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium flex items-center gap-1">
-                <FaCheckCircle className="text-green-600" /> Active
+              <span className="badge-success">
+                <FaCheckCircle className="text-[10px]" /> Active
               </span>
             </div>
           </div>
 
           <div className="mt-4">
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 className="text-2xl font-bold text-ink-900 font-display">
               Dr. {doctor.user?.name || doctor.name}
             </h2>
-            <p className="text-emerald-600 font-medium">{doctor.specialisation || 'General Practitioner'}</p>
-            <p className="text-sm text-gray-500 mt-1">{doctor.user?.email}</p>
+            <p className="text-primary-600 font-medium">{doctor.specialisation || 'General Practitioner'}</p>
+            <p className="text-sm text-ink-400 mt-1">{doctor.user?.email}</p>
           </div>
 
-          {/* Profile Details - Read Mode */}
-          {!editing ? (
-            <div className="mt-6 grid md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <FaInfoCircle className="text-emerald-600" /> About
-                </h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500">Specialisation</span>
-                    <span className="font-medium">{doctor.specialisation || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500">Experience</span>
-                    <span className="font-medium">{doctor.yearsOfExperience || 0} years</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500">Qualifications</span>
-                    <span className="font-medium">{doctor.qualifications || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500">SLVC Registration</span>
-                    <span className="font-medium">{doctor.slvcRegistrationNumber || 'N/A'}</span>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <FaHospital className="text-emerald-600" /> Clinic Details
-                </h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500">Clinic Name</span>
-                    <span className="font-medium">{doctor.clinicName || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500">Location</span>
-                    <span className="font-medium">{doctor.city}, {doctor.district}</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500">Address</span>
-                    <span className="font-medium">{doctor.clinicAddress || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500">Phone</span>
-                    <span className="font-medium">{doctor.phoneNumber || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500">Map Pin</span>
-                    <span className={`font-medium flex items-center gap-1 ${doctor.latitude && doctor.longitude ? 'text-emerald-600' : 'text-amber-600'}`}>
-                      <FaMapPin className="text-xs" />
-                      {doctor.latitude && doctor.longitude ? 'Exact location set' : 'Not set (showing district only)'}
-                    </span>
+          <AnimatePresence mode="wait">
+            {!editing ? (
+              /* ===== Read Mode ===== */
+              <motion.div
+                key="view"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="mt-6 grid md:grid-cols-2 gap-6"
+              >
+                <div>
+                  <h3 className="text-sm font-semibold text-ink-700 mb-3 flex items-center gap-2">
+                    <FaInfoCircle className="text-primary-600" /> About
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between py-2 border-b border-ink-100">
+                      <span className="text-ink-400">Specialisation</span>
+                      <span className="font-medium text-ink-800">{doctor.specialisation || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-ink-100">
+                      <span className="text-ink-400">Experience</span>
+                      <span className="font-medium text-ink-800">{doctor.yearsOfExperience || 0} years</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-ink-100">
+                      <span className="text-ink-400">Qualifications</span>
+                      <span className="font-medium text-ink-800">{doctor.qualifications || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-ink-100">
+                      <span className="text-ink-400">SLVC Registration</span>
+                      <span className="font-medium text-ink-800">{doctor.slvcRegistrationNumber || 'N/A'}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          ) : (
-            // Edit Mode
-            <form onSubmit={handleSubmit} className="mt-6">
-              <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Specialisation</label>
-                  <input
-                    type="text"
-                    name="specialisation"
-                    value={formData.specialisation || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <h3 className="text-sm font-semibold text-ink-700 mb-3 flex items-center gap-2">
+                    <FaHospital className="text-primary-600" /> Clinic Details
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between py-2 border-b border-ink-100">
+                      <span className="text-ink-400">Clinic Name</span>
+                      <span className="font-medium text-ink-800">{doctor.clinicName || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-ink-100">
+                      <span className="text-ink-400">Location</span>
+                      <span className="font-medium text-ink-800">{doctor.city}, {doctor.district}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-ink-100">
+                      <span className="text-ink-400">Address</span>
+                      <span className="font-medium text-ink-800">{doctor.clinicAddress || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-ink-100">
+                      <span className="text-ink-400">Phone</span>
+                      <span className="font-medium text-ink-800">{doctor.phoneNumber || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-ink-100">
+                      <span className="text-ink-400">Map Pin</span>
+                      <span className={`font-medium flex items-center gap-1 ${doctor.latitude && doctor.longitude ? 'text-primary-600' : 'text-amber-600'}`}>
+                        <FaMapPin className="text-xs" />
+                        {doctor.latitude && doctor.longitude ? 'Exact location set' : 'Not set (showing district only)'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Years of Experience</label>
-                  <input
-                    type="number"
-                    name="yearsOfExperience"
-                    value={formData.yearsOfExperience || 0}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
+              </motion.div>
+            ) : (
+              /* ===== Edit Mode ===== */
+              <motion.form
+                key="edit"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                onSubmit={handleSubmit}
+                className="mt-6"
+              >
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="form-group mb-0">
+                    <label className="form-label">Specialisation</label>
+                    <input
+                      type="text"
+                      name="specialisation"
+                      value={formData.specialisation || ''}
+                      onChange={handleChange}
+                      className="input-field"
+                    />
+                  </div>
+                  <div className="form-group mb-0">
+                    <label className="form-label">Years of Experience</label>
+                    <input
+                      type="number"
+                      name="yearsOfExperience"
+                      value={formData.yearsOfExperience || 0}
+                      onChange={handleChange}
+                      className="input-field"
+                      min="0"
+                    />
+                  </div>
+                  <div className="form-group mb-0">
+                    <label className="form-label">
+                      <FaGraduationCap className="inline mr-1 text-primary-600" />
+                      Qualifications
+                    </label>
+                    <input
+                      type="text"
+                      name="qualifications"
+                      value={formData.qualifications || ''}
+                      onChange={handleChange}
+                      className="input-field"
+                    />
+                  </div>
+                  <div className="form-group mb-0">
+                    <label className="form-label">SLVC Registration</label>
+                    <input
+                      type="text"
+                      name="slvcRegistrationNumber"
+                      value={formData.slvcRegistrationNumber || ''}
+                      onChange={handleChange}
+                      className="input-field"
+                    />
+                  </div>
+                  <div className="form-group mb-0">
+                    <label className="form-label">Clinic Name</label>
+                    <input
+                      type="text"
+                      name="clinicName"
+                      value={formData.clinicName || ''}
+                      onChange={handleChange}
+                      className="input-field"
+                    />
+                  </div>
+                  <div className="form-group mb-0">
+                    <label className="form-label">District</label>
+                    <input
+                      type="text"
+                      name="district"
+                      value={formData.district || ''}
+                      onChange={handleChange}
+                      className="input-field"
+                    />
+                  </div>
+                  <div className="form-group mb-0">
+                    <label className="form-label">City</label>
+                    <input
+                      type="text"
+                      name="city"
+                      value={formData.city || ''}
+                      onChange={handleChange}
+                      className="input-field"
+                    />
+                  </div>
+                  <div className="form-group mb-0">
+                    <label className="form-label">Clinic Address</label>
+                    <input
+                      type="text"
+                      name="clinicAddress"
+                      value={formData.clinicAddress || ''}
+                      onChange={handleChange}
+                      className="input-field"
+                    />
+                  </div>
+                  <div className="form-group mb-0">
+                    <label className="form-label">Phone Number</label>
+                    <input
+                      type="text"
+                      name="phoneNumber"
+                      value={formData.phoneNumber || ''}
+                      onChange={handleChange}
+                      className="input-field"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Qualifications</label>
-                  <input
-                    type="text"
-                    name="qualifications"
-                    value={formData.qualifications || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SLVC Registration</label>
-                  <input
-                    type="text"
-                    name="slvcRegistrationNumber"
-                    value={formData.slvcRegistrationNumber || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Clinic Name</label>
-                  <input
-                    type="text"
-                    name="clinicName"
-                    value={formData.clinicName || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
-                  <input
-                    type="text"
-                    name="district"
-                    value={formData.district || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={formData.city || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Clinic Address</label>
-                  <input
-                    type="text"
-                    name="clinicAddress"
-                    value={formData.clinicAddress || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                  <input
-                    type="text"
-                    name="phoneNumber"
-                    value={formData.phoneNumber || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
 
-              {/* Clinic Location Map Picker */}
-              <div className="mt-6">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    <FaMapPin className="inline mr-1 text-emerald-600" />
-                    Clinic Location on Map
-                  </label>
+                {/* Clinic Location Map Picker */}
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="form-label mb-0">
+                      <FaMapPin className="inline mr-1 text-primary-600" />
+                      Clinic Location on Map
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleUseCurrentLocation}
+                      disabled={locating}
+                      className="text-xs font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <FaCrosshairs />
+                      {locating ? 'Locating...' : 'Use my current location'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-ink-400 mb-2">
+                    Click anywhere on the map to drop a pin at your clinic's exact location. Pet owners searching nearby will see this instead of an approximate district center.
+                  </p>
+                  <div className="rounded-xl overflow-hidden border border-ink-200" style={{ height: '260px' }}>
+                    <MapContainer
+                      center={
+                        formData.latitude && formData.longitude
+                          ? [formData.latitude, formData.longitude]
+                          : SRI_LANKA_CENTER
+                      }
+                      zoom={formData.latitude && formData.longitude ? 15 : 8}
+                      style={{ height: '100%', width: '100%' }}
+                    >
+                      <TileLayer
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      />
+                      <LocationPicker onPick={handlePickLocation} />
+                      {formData.latitude && formData.longitude && (
+                        <Marker position={[formData.latitude, formData.longitude]} />
+                      )}
+                    </MapContainer>
+                  </div>
+                  {formData.latitude && formData.longitude ? (
+                    <p className="text-xs text-primary-600 mt-2 flex items-center gap-1">
+                      <FaCheckCircle /> Pin set at {Number(formData.latitude).toFixed(5)}, {Number(formData.longitude).toFixed(5)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-600 mt-2">No pin set yet — click the map above</p>
+                  )}
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    disabled={saving}
+                    className="btn-primary flex-1"
+                  >
+                    <FaSave /> {saving ? 'Saving...' : 'Save Changes'}
+                  </motion.button>
                   <button
                     type="button"
-                    onClick={handleUseCurrentLocation}
-                    disabled={locating}
-                    className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 disabled:opacity-50"
+                    onClick={handleEditToggle}
+                    className="btn-secondary flex-1"
                   >
-                    <FaCrosshairs />
-                    {locating ? 'Locating...' : 'Use my current location'}
+                    Cancel
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mb-2">
-                  Click anywhere on the map to drop a pin at your clinic's exact location. Pet owners searching nearby will see this instead of an approximate district center.
-                </p>
-                <div className="rounded-xl overflow-hidden border border-gray-200" style={{ height: '260px' }}>
-                  <MapContainer
-                    center={
-                      formData.latitude && formData.longitude
-                        ? [formData.latitude, formData.longitude]
-                        : SRI_LANKA_CENTER
-                    }
-                    zoom={formData.latitude && formData.longitude ? 15 : 8}
-                    style={{ height: '100%', width: '100%' }}
-                  >
-                    <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    />
-                    <LocationPicker onPick={handlePickLocation} />
-                    {formData.latitude && formData.longitude && (
-                      <Marker position={[formData.latitude, formData.longitude]} />
-                    )}
-                  </MapContainer>
-                </div>
-                {formData.latitude && formData.longitude ? (
-                  <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
-                    <FaCheckCircle /> Pin set at {Number(formData.latitude).toFixed(5)}, {Number(formData.longitude).toFixed(5)}
-                  </p>
-                ) : (
-                  <p className="text-xs text-amber-600 mt-2">No pin set yet — click the map above</p>
-                )}
-              </div>
-              <div className="mt-4 flex gap-3">
-                <button
-                  type="submit"
-                  className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg hover:bg-emerald-700 transition flex items-center justify-center gap-2"
-                >
-                  <FaSave /> Save Changes
-                </button>
-                <button
-                  type="button"
-                  onClick={handleEditToggle}
-                  className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
+              </motion.form>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
 export default DoctorProfileView;
+

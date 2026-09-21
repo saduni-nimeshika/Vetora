@@ -64,9 +64,21 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  // Merge extra fields (e.g. a freshly-uploaded profileImage) into the
+  // logged-in user without a full re-login — keeps localStorage in sync too
+  // so a page refresh doesn't lose it.
+  const updateUser = (partial) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...partial };
+      localStorage.setItem('user', JSON.stringify(next));
+      return next;
+    });
+  };
+
   return (
     <AuthContext.Provider value={{ 
-      user, login, register, logout, loading, 
+      user, login, register, logout, loading, updateUser,
       isAuthenticated: !!user,
       isAdmin: user?.role === 'ADMIN',
       isDoctor: user?.role === 'DOCTOR',
