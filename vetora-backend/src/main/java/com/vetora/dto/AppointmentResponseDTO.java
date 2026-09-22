@@ -14,6 +14,7 @@ public class AppointmentResponseDTO {
     private String ownerName;
     private Long doctorId;
     private String doctorName;
+    private String doctorImage;
     private LocalDate appointmentDate;
     private LocalTime appointmentTime;
     private LocalDateTime appointmentDateTime;
@@ -28,7 +29,7 @@ public class AppointmentResponseDTO {
 
     public AppointmentResponseDTO(Long id, Long petId, String petName, String petSpecies,
                                   String petImage, String ownerName,
-                                  Long doctorId, String doctorName, LocalDate appointmentDate,
+                                  Long doctorId, String doctorName, String doctorImage, LocalDate appointmentDate,
                                   LocalTime appointmentTime, LocalDateTime appointmentDateTime,
                                   String status, String notes, String rejectionReason,
                                   LocalDateTime createdAt, LocalDateTime updatedAt) {
@@ -40,6 +41,7 @@ public class AppointmentResponseDTO {
         this.ownerName = ownerName;
         this.doctorId = doctorId;
         this.doctorName = doctorName;
+        this.doctorImage = doctorImage;
         this.appointmentDate = appointmentDate;
         this.appointmentTime = appointmentTime;
         this.appointmentDateTime = appointmentDateTime;
@@ -75,6 +77,9 @@ public class AppointmentResponseDTO {
     public String getDoctorName() { return doctorName; }
     public void setDoctorName(String doctorName) { this.doctorName = doctorName; }
 
+    public String getDoctorImage() { return doctorImage; }
+    public void setDoctorImage(String doctorImage) { this.doctorImage = doctorImage; }
+
     public LocalDate getAppointmentDate() { return appointmentDate; }
     public void setAppointmentDate(LocalDate appointmentDate) { this.appointmentDate = appointmentDate; }
 
@@ -99,4 +104,5 @@ public class AppointmentResponseDTO {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
+
 

@@ -8,9 +8,9 @@ import java.time.LocalDateTime;
 public class Reminder {
 
     public enum ReminderType {
-        APPOINTMENT,
+        VACCINATION,
         MEDICATION,
-        VACCINATION
+        APPOINTMENT
     }
 
     @Id
@@ -32,19 +32,19 @@ public class Reminder {
     @Column(name = "reminder_date_time", nullable = false)
     private LocalDateTime reminderDateTime;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
+    @Column(columnDefinition = "TEXT")
     private String message;
 
-    @Column(name = "is_sent")
+    @Column(name = "is_sent", nullable = false)
     private Boolean isSent = false;
 
-    @Column(name = "is_recurring")
+    @Column(name = "is_recurring", nullable = false)
     private Boolean isRecurring = false;
 
     @Column(name = "recurrence_interval")
     private Integer recurrenceInterval;
 
-    @Column(name = "is_active")
+    @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
     @Column(name = "created_at", updatable = false)
@@ -53,13 +53,17 @@ public class Reminder {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // No-Args Constructor
+    public Reminder() {
+    }
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         if (this.isSent == null) this.isSent = false;
-        if (this.isActive == null) this.isActive = true;
         if (this.isRecurring == null) this.isRecurring = false;
+        if (this.isActive == null) this.isActive = true;
     }
 
     @PreUpdate
@@ -87,16 +91,16 @@ public class Reminder {
     public void setMessage(String message) { this.message = message; }
 
     public Boolean getIsSent() { return isSent; }
-    public void setIsSent(Boolean isSent) { this.isSent = isSent; }
+    public void setIsSent(Boolean isSent) { this.isSent = isSent != null ? isSent : false; }
 
     public Boolean getIsRecurring() { return isRecurring; }
-    public void setIsRecurring(Boolean isRecurring) { this.isRecurring = isRecurring; }
+    public void setIsRecurring(Boolean isRecurring) { this.isRecurring = isRecurring != null ? isRecurring : false; }
 
     public Integer getRecurrenceInterval() { return recurrenceInterval; }
     public void setRecurrenceInterval(Integer recurrenceInterval) { this.recurrenceInterval = recurrenceInterval; }
 
     public Boolean getIsActive() { return isActive; }
-    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+    public void setIsActive(Boolean isActive) { this.isActive = isActive != null ? isActive : true; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
@@ -104,3 +108,4 @@ public class Reminder {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
+

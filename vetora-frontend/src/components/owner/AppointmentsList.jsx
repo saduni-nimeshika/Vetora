@@ -60,6 +60,16 @@ const AppointmentsList = () => {
     return 'badge-neutral';
   };
 
+  const Avatar = ({ src, fallbackIcon: Icon, alt, size = 'w-9 h-9', iconClass = 'text-sm' }) => (
+    <span className={`${size} rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center shrink-0 overflow-hidden`}>
+      {src && src !== 'default-avatar.png' ? (
+        <img src={src} alt={alt} className="w-full h-full object-cover" />
+      ) : (
+        <Icon className={iconClass} />
+      )}
+    </span>
+  );
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -116,8 +126,18 @@ const AppointmentsList = () => {
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <td className="font-semibold text-ink-800">{app.petName}</td>
-                      <td>Dr. {app.doctorName}</td>
+                      <td className="font-semibold text-ink-800">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar src={app.petImage} fallbackIcon={FaPaw} alt={app.petName} />
+                          {app.petName}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar src={app.doctorImage} fallbackIcon={FaUserMd} alt={app.doctorName} />
+                          Dr. {app.doctorName}
+                        </div>
+                      </td>
                       <td>{app.appointmentDate}</td>
                       <td>{app.appointmentTime}</td>
                       <td>
@@ -154,13 +174,12 @@ const AppointmentsList = () => {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2.5">
-                      <span className="w-10 h-10 rounded-xl bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">
-                        <FaPaw className="text-sm" />
-                      </span>
+                      <Avatar src={app.petImage} fallbackIcon={FaPaw} alt={app.petName} size="w-10 h-10" />
                       <div>
                         <p className="font-bold text-ink-900">{app.petName}</p>
-                        <p className="text-xs text-ink-400 flex items-center gap-1">
-                          <FaUserMd className="text-[10px]" /> Dr. {app.doctorName}
+                        <p className="text-xs text-ink-400 flex items-center gap-1.5 mt-0.5">
+                          <Avatar src={app.doctorImage} fallbackIcon={FaUserMd} alt={app.doctorName} size="w-4 h-4" iconClass="text-[8px]" />
+                          Dr. {app.doctorName}
                         </p>
                       </div>
                     </div>
@@ -192,3 +211,4 @@ const AppointmentsList = () => {
 };
 
 export default AppointmentsList;
+

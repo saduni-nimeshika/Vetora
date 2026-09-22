@@ -353,6 +353,14 @@ public class AppointmentService {
     private AppointmentResponseDTO convertToResponseDTO(Appointment appointment) {
         Pet pet = appointment.getPet();
         String ownerName = (pet != null && pet.getOwner() != null) ? pet.getOwner().getName() : null;
+
+        // appointment.getDoctor() returns the User account; the profile image
+        // actually lives on the linked Doctor record, so look it up separately.
+        User doctorUser = appointment.getDoctor();
+        String doctorProfileImage = doctorRepository.findByUser(doctorUser)
+                .map(Doctor::getProfileImage)
+                .orElse(null);
+
         return new AppointmentResponseDTO(
                 appointment.getId(),
                 pet.getId(),
@@ -360,8 +368,9 @@ public class AppointmentService {
                 pet.getSpecies(),
                 pet.getProfileImage(),
                 ownerName,
-                appointment.getDoctor().getId(),
-                appointment.getDoctor().getName(),
+                doctorUser.getId(),
+                doctorUser.getName(),
+                doctorProfileImage,
                 appointment.getAppointmentDate(),
                 appointment.getAppointmentTime(),
                 appointment.getAppointmentDateTime(),
@@ -373,4 +382,7 @@ public class AppointmentService {
         );
     }
 }
+
+
+
 
