@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../api/axios';
 import { FaCheckCircle, FaTimesCircle, FaPaw, FaEnvelope } from 'react-icons/fa';
@@ -11,6 +11,15 @@ const VerifyEmail = () => {
   const [message, setMessage] = useState('');
   const [resendEmail, setResendEmail] = useState('');
   const [resending, setResending] = useState(false);
+  // ✅ Fix: React.StrictMode (main.jsx) intentionally double-invokes effects
+  // in development, so this effect used to call verify() twice for the same
+  // token. The first call correctly verifies the account and marks the
+  // token as used; the second call then hits "already used" and its error
+  // response overwrote the successful state — showing "Verification Failed"
+  // even though the account was, in fact, verified. This ref makes sure the
+  // token is only ever submitted once per link, no matter how many times
+  // the effect body runs.
+  const verifiedRef = useRef(false);
 
   useEffect(() => {
     if (!token) {
@@ -18,6 +27,8 @@ const VerifyEmail = () => {
       setMessage('No verification token found in this link.');
       return;
     }
+    if (verifiedRef.current) return;
+    verifiedRef.current = true;
     verify();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
@@ -29,7 +40,11 @@ const VerifyEmail = () => {
       setMessage(res.data?.message || 'Email verified successfully!');
     } catch (err) {
       setStatus('error');
-      setMessage(err.response?.data?.error || 'This verification link is invalid or has expired.');
+      // ✅ Fix: the backend puts its message under `message` (see
+      // AuthController), not `error` — reading `.error` always came back
+      // undefined here, so the real reason (e.g. "already used"/"expired")
+      // never reached the user and they always saw the generic fallback.
+      setMessage(err.response?.data?.message || err.response?.data?.error || 'This verification link is invalid or has expired.');
     }
   };
 
@@ -41,7 +56,7 @@ const VerifyEmail = () => {
       await api.post(`/api/v1/auth/resend-verification?email=${encodeURIComponent(resendEmail)}`);
       toast.success('Verification email resent — please check your inbox');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to resend verification email');
+      toast.error(err.response?.data?.error || err.response?.data?.message || 'Failed to resend verification email');
     } finally {
       setResending(false);
     }
@@ -111,3 +126,4 @@ const VerifyEmail = () => {
 };
 
 export default VerifyEmail;
+

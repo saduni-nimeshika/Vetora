@@ -2,6 +2,8 @@ package com.vetora.controller;
 
 import com.vetora.dto.PetRequestDTO;
 import com.vetora.dto.PetResponseDTO;
+import com.vetora.dto.WeightRecordRequestDTO;
+import com.vetora.dto.WeightRecordResponseDTO;
 import com.vetora.service.PetService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -117,6 +119,83 @@ public class PetController {
         }
     }
 
+    // ✅ Log a new weight entry for a pet
+    @PostMapping("/owner/pets/{petId}/weight")
+    public ResponseEntity<?> addWeightRecord(@PathVariable Long petId,
+                                             @Valid @RequestBody WeightRecordRequestDTO request) {
+        try {
+            String ownerEmail = getCurrentUserEmail();
+            WeightRecordResponseDTO record = petService.addWeightRecord(petId, request, ownerEmail);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("record", record);
+            response.put("message", "✅ Weight logged successfully!");
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    // ✅ Get weight history for a pet (oldest first, for the chart)
+    @GetMapping("/owner/pets/{petId}/weight-history")
+    public ResponseEntity<?> getWeightHistory(@PathVariable Long petId) {
+        try {
+            String ownerEmail = getCurrentUserEmail();
+            List<WeightRecordResponseDTO> history = petService.getWeightHistory(petId, ownerEmail);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("history", history);
+            response.put("count", history.size());
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    // ✅ Owner: Edit one of their own manually-logged weight entries
+    @PutMapping("/owner/pets/weight/{recordId}")
+    public ResponseEntity<?> ownerUpdateWeightRecord(@PathVariable Long recordId,
+                                                     @Valid @RequestBody WeightRecordRequestDTO request) {
+        try {
+            String ownerEmail = getCurrentUserEmail();
+            WeightRecordResponseDTO record = petService.updateWeightRecordByOwner(recordId, request, ownerEmail);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("record", record);
+            response.put("message", "✅ Weight entry updated successfully!");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    // ✅ Owner: Delete one of their own manually-logged weight entries
+    @DeleteMapping("/owner/pets/weight/{recordId}")
+    public ResponseEntity<?> ownerDeleteWeightRecord(@PathVariable Long recordId) {
+        try {
+            String ownerEmail = getCurrentUserEmail();
+            petService.deleteWeightRecordByOwner(recordId, ownerEmail);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "✅ Weight entry deleted successfully!");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
     @GetMapping("/owner/pets/search")
     public ResponseEntity<?> searchPets(@RequestParam String name) {
         try {
@@ -212,6 +291,64 @@ public class PetController {
 
 
     // ========== DOCTOR ENDPOINTS ==========
+
+    // ✅ Doctor: Log a weight entry for a patient during a visit
+    @PostMapping("/doctor/pets/{petId}/weight")
+    public ResponseEntity<?> doctorAddWeightRecord(@PathVariable Long petId,
+                                                   @Valid @RequestBody WeightRecordRequestDTO request) {
+        try {
+            String doctorEmail = getCurrentUserEmail();
+            WeightRecordResponseDTO record = petService.addWeightRecordByDoctor(petId, request, doctorEmail);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("record", record);
+            response.put("message", "✅ Weight logged successfully!");
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    // ✅ Doctor: Correct an existing weight entry (their own, or the owner's)
+    @PutMapping("/doctor/pets/weight/{recordId}")
+    public ResponseEntity<?> doctorUpdateWeightRecord(@PathVariable Long recordId,
+                                                      @Valid @RequestBody WeightRecordRequestDTO request) {
+        try {
+            String doctorEmail = getCurrentUserEmail();
+            WeightRecordResponseDTO record = petService.updateWeightRecordByDoctor(recordId, request, doctorEmail);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("record", record);
+            response.put("message", "✅ Weight entry updated successfully!");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    // ✅ Doctor: Get weight history for a patient (oldest first, for the chart)
+    @GetMapping("/doctor/pets/{petId}/weight-history")
+    public ResponseEntity<?> doctorGetWeightHistory(@PathVariable Long petId) {
+        try {
+            List<WeightRecordResponseDTO> history = petService.getWeightHistoryForDoctor(petId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("history", history);
+            response.put("count", history.size());
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
+    }
 
     @GetMapping("/doctor/pets/{petId}")
     public ResponseEntity<?> doctorGetPetById(@PathVariable Long petId) {

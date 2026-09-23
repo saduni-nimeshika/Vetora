@@ -6,8 +6,9 @@ import {
   FaPaw, FaCalendar, FaFileMedical, FaSyringe, FaPrescription,
   FaWeight, FaRuler, FaHeart, FaStethoscope, FaClipboardList,
   FaChartLine, FaUserMd, FaClock, FaCheckCircle, FaTimesCircle,
-  FaArrowLeft, FaEdit, FaPhone, FaEnvelope, FaMapMarkerAlt, FaBell
+  FaArrowLeft, FaEdit, FaPhone, FaEnvelope, FaMapMarkerAlt, FaBell, FaPencilAlt, FaLock, FaTrash
 } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -41,7 +42,13 @@ const PetProfile = () => {
   const [prescriptions, setPrescriptions] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [reminders, setReminders] = useState([]);
+  const [weightHistory, setWeightHistory] = useState([]);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+  const [showWeightModal, setShowWeightModal] = useState(false);
+  const [weightForm, setWeightForm] = useState({ weight: '', recordedDate: '', notes: '' });
+  const [editingWeightId, setEditingWeightId] = useState(null);
+  const [weightSaving, setWeightSaving] = useState(false);
+  const [weightError, setWeightError] = useState('');
 
   // If we arrive via a link that specifies a tab (e.g. from a reminder on the
   // dashboard), jump straight to it instead of always landing on Overview.
@@ -57,13 +64,14 @@ const PetProfile = () => {
   const fetchPetData = async () => {
     try {
       setLoading(true);
-      const [petRes, recordsRes, vaccRes, presRes, appRes, remRes] = await Promise.all([
+      const [petRes, recordsRes, vaccRes, presRes, appRes, remRes, weightRes] = await Promise.all([
         api.get(`/api/v1/owner/pets/${petId}`),
         api.get(`/api/v1/owner/medical-records/pet/${petId}`),
         api.get(`/api/v1/owner/vaccinations/pet/${petId}`),
         api.get(`/api/v1/owner/prescriptions/pet/${petId}`).catch(() => ({ data: { prescriptions: [] } })),
         api.get(`/api/v1/owner/appointments`),
-        api.get(`/api/v1/owner/reminders/pet/${petId}`).catch(() => ({ data: { reminders: [] } }))
+        api.get(`/api/v1/owner/reminders/pet/${petId}`).catch(() => ({ data: { reminders: [] } })),
+        api.get(`/api/v1/owner/pets/${petId}/weight-history`).catch(() => ({ data: { history: [] } }))
       ]);
       
       setPet(petRes.data);
@@ -74,10 +82,80 @@ const PetProfile = () => {
       const remList = (remRes.data?.reminders || [])
         .sort((a, b) => new Date(a.reminderDateTime) - new Date(b.reminderDateTime));
       setReminders(remList);
+      setWeightHistory(weightRes.data?.history || []);
     } catch (error) {
       console.error('Error fetching pet data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openWeightModal = () => {
+    setEditingWeightId(null);
+    setWeightForm({
+      weight: '',
+      recordedDate: new Date().toISOString().split('T')[0],
+      notes: ''
+    });
+    setWeightError('');
+    setShowWeightModal(true);
+  };
+
+  const openEditWeightModal = (record) => {
+    // Owners can only correct their own home-logged entries — a vet-recorded
+    // entry needs a vet to correct it.
+    if (record.source !== 'OWNER') return;
+    setEditingWeightId(record.id);
+    setWeightForm({
+      weight: String(record.weight),
+      recordedDate: record.recordedDate,
+      notes: record.notes || ''
+    });
+    setWeightError('');
+    setShowWeightModal(true);
+  };
+
+  const handleLogWeight = async (e) => {
+    e.preventDefault();
+    if (!weightForm.weight || parseFloat(weightForm.weight) <= 0) {
+      setWeightError('Please enter a valid weight');
+      return;
+    }
+    try {
+      setWeightSaving(true);
+      setWeightError('');
+      const payload = {
+        weight: parseFloat(weightForm.weight),
+        recordedDate: weightForm.recordedDate || undefined,
+        notes: weightForm.notes || undefined
+      };
+      if (editingWeightId) {
+        await api.put(`/api/v1/owner/pets/weight/${editingWeightId}`, payload);
+      } else {
+        await api.post(`/api/v1/owner/pets/${petId}/weight`, payload);
+      }
+      setShowWeightModal(false);
+      await fetchPetData();
+    } catch (error) {
+      setWeightError(error.response?.data?.error || 'Failed to save weight. Please try again.');
+    } finally {
+      setWeightSaving(false);
+    }
+  };
+
+  const handleDeleteWeight = async (record) => {
+    // Same rule as editing — only entries the owner logged themselves can be
+    // removed here; a vet-recorded entry needs the vet to remove it.
+    if (record.source !== 'OWNER') return;
+    if (!window.confirm(`Delete the ${record.weight} kg entry from ${new Date(record.recordedDate).toLocaleDateString()}? This can't be undone.`)) {
+      return;
+    }
+    try {
+      await api.delete(`/api/v1/owner/pets/weight/${record.id}`);
+      toast.success('✅ Weight entry deleted');
+      await fetchPetData();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to delete weight entry');
     }
   };
 
@@ -111,13 +189,15 @@ const PetProfile = () => {
     );
   }
 
-  // Weight chart data
+  // Weight chart data — built from real logged entries, no fabricated history
   const weightData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    labels: weightHistory.map((r) =>
+      new Date(r.recordedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    ),
     datasets: [
       {
         label: 'Weight (kg)',
-        data: [2.5, 2.8, 3.0, 3.2, 3.5, 3.8, 4.0, 4.2, 4.5, 4.8, 5.0, 5.2],
+        data: weightHistory.map((r) => r.weight),
         borderColor: '#059669',
         backgroundColor: 'rgba(5, 150, 105, 0.1)',
         fill: true,
@@ -279,13 +359,76 @@ const PetProfile = () => {
 
               {/* Weight Chart */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <FaChartLine className="text-emerald-600" />
-                  Weight Tracking
-                </h3>
-                <div className="h-48">
-                  <Line data={weightData} options={chartOptions} />
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <FaChartLine className="text-emerald-600" />
+                    Weight Tracking
+                  </h3>
+                  <button
+                    onClick={openWeightModal}
+                    className="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition flex items-center gap-1"
+                  >
+                    <FaWeight /> Log Weight
+                  </button>
                 </div>
+                {weightHistory.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">
+                    No weight entries yet — log the first one to start tracking {pet.name}'s weight over time.
+                  </p>
+                ) : (
+                  <>
+                    <div className="h-48">
+                      <Line data={weightData} options={chartOptions} />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {weightHistory.slice(-6).reverse().map((r) => {
+                        const editable = r.source === 'OWNER';
+                        return (
+                          <div
+                            key={r.id}
+                            className={`text-xs border rounded-full pl-2.5 pr-1 py-1 flex items-center gap-1 transition ${
+                              editable
+                                ? 'bg-gray-50 border-gray-100 text-gray-600'
+                                : 'bg-gray-50 border-gray-100 text-gray-600'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => openEditWeightModal(r)}
+                              disabled={!editable}
+                              title={editable ? 'Click to edit this entry' : "Recorded by a doctor — ask your vet to correct it"}
+                              className={`flex items-center gap-1 ${editable ? 'cursor-pointer' : 'cursor-default'}`}
+                            >
+                              {editable ? (
+                                <FaPencilAlt className="text-[9px] text-gray-400" />
+                              ) : (
+                                <FaLock className="text-[9px] text-gray-400" />
+                              )}
+                              {r.weight} kg · {new Date(r.recordedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              {' · '}
+                              <span className={r.source === 'DOCTOR' ? 'text-emerald-600 font-medium' : 'text-gray-500'}>
+                                {r.source === 'DOCTOR' ? (r.recordedByName || 'Doctor') : 'You'}
+                              </span>
+                              {r.editedByName && (
+                                <span className="text-amber-600"> (corrected by {r.editedByName})</span>
+                              )}
+                            </button>
+                            {editable && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteWeight(r)}
+                                title="Delete this entry"
+                                className="ml-0.5 p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                              >
+                                <FaTrash className="text-[9px]" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Recent Medical Records */}
@@ -494,6 +637,69 @@ const PetProfile = () => {
           )}
         </div>
       </div>
+
+      {/* Log Weight Modal */}
+      {showWeightModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <FaWeight className="text-emerald-600" /> {editingWeightId ? 'Edit Weight Entry' : `Log ${pet.name}'s Weight`}
+            </h3>
+            <form onSubmit={handleLogWeight} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  value={weightForm.weight}
+                  onChange={(e) => setWeightForm({ ...weightForm, weight: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g. 4.5"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={weightForm.recordedDate}
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setWeightForm({ ...weightForm, recordedDate: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <input
+                  type="text"
+                  value={weightForm.notes}
+                  onChange={(e) => setWeightForm({ ...weightForm, notes: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g. After vet visit"
+                />
+              </div>
+              {weightError && <p className="text-sm text-red-600">{weightError}</p>}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowWeightModal(false)}
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={weightSaving}
+                  className="flex-1 bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition disabled:opacity-60"
+                >
+                  {weightSaving ? 'Saving...' : (editingWeightId ? 'Update' : 'Save')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
