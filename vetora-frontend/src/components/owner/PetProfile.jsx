@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { 
+import {
   FaPaw, FaCalendar, FaFileMedical, FaSyringe, FaPrescription,
-  FaWeight, FaRuler, FaHeart, FaStethoscope, FaClipboardList,
+  FaWeight, FaVenusMars, FaBirthdayCake, FaStethoscope, FaClipboardList,
   FaChartLine, FaUserMd, FaClock, FaCheckCircle, FaTimesCircle,
-  FaArrowLeft, FaEdit, FaPhone, FaEnvelope, FaMapMarkerAlt, FaBell, FaPencilAlt, FaLock, FaTrash
+  FaArrowLeft, FaEdit, FaPhone, FaEnvelope, FaMapMarkerAlt, FaBell, FaPencilAlt, FaLock, FaTrash, FaPlus
 } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import { Line } from 'react-chartjs-2';
@@ -73,7 +73,7 @@ const PetProfile = () => {
         api.get(`/api/v1/owner/reminders/pet/${petId}`).catch(() => ({ data: { reminders: [] } })),
         api.get(`/api/v1/owner/pets/${petId}/weight-history`).catch(() => ({ data: { history: [] } }))
       ]);
-      
+
       setPet(petRes.data);
       setMedicalRecords(recordsRes.data?.records || []);
       setVaccinations(vaccRes.data?.vaccinations || []);
@@ -159,32 +159,38 @@ const PetProfile = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    if (status === 'COMPLETED' || status === 'DONE') return 'text-green-600 bg-green-100';
-    if (status === 'PENDING' || status === 'TO_DO') return 'text-orange-600 bg-orange-100';
-    if (status === 'CANCELLED' || status === 'REJECTED') return 'text-red-600 bg-red-100';
-    return 'text-gray-600 bg-gray-100';
+  const getStatusBadgeClass = (status) => {
+    if (status === 'COMPLETED' || status === 'DONE') return 'badge-success';
+    if (status === 'PENDING' || status === 'TO_DO') return 'badge-warning';
+    if (status === 'CANCELLED' || status === 'REJECTED') return 'badge-danger';
+    return 'badge-neutral';
   };
 
   const getStatusIcon = (status) => {
-    if (status === 'COMPLETED' || status === 'DONE') return <FaCheckCircle className="text-green-600" />;
-    if (status === 'PENDING' || status === 'TO_DO') return <FaClock className="text-orange-600" />;
-    return <FaTimesCircle className="text-red-600" />;
+    if (status === 'COMPLETED' || status === 'DONE') return <FaCheckCircle className="text-[10px]" />;
+    if (status === 'PENDING' || status === 'TO_DO') return <FaClock className="text-[10px]" />;
+    return <FaTimesCircle className="text-[10px]" />;
+  };
+
+  const calcAge = (dob) => {
+    if (!dob) return null;
+    const years = new Date().getFullYear() - new Date(dob).getFullYear();
+    return years;
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="spinner w-12 h-12" />
       </div>
     );
   }
 
   if (!pet) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">Pet not found</p>
-        <Link to="/owner/pets" className="text-emerald-600 hover:underline">Back to pets</Link>
+      <div className="empty-state">
+        <p className="text-ink-500">Pet not found</p>
+        <Link to="/owner/pets" className="text-primary-600 hover:underline mt-2">Back to pets</Link>
       </div>
     );
   }
@@ -202,12 +208,17 @@ const PetProfile = () => {
         backgroundColor: 'rgba(5, 150, 105, 0.1)',
         fill: true,
         tension: 0.4,
+        pointBackgroundColor: '#059669',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1.5,
+        pointRadius: 3,
       }
     ]
   };
 
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         display: false,
@@ -228,101 +239,84 @@ const PetProfile = () => {
     }
   };
 
+  const tabs = [
+    { key: 'overview', label: 'Overview', icon: <FaClipboardList /> },
+    { key: 'medical', label: 'Medical Records', icon: <FaFileMedical />, count: medicalRecords.length },
+    { key: 'vaccinations', label: 'Vaccinations', icon: <FaSyringe />, count: vaccinations.length },
+    { key: 'prescriptions', label: 'Prescriptions', icon: <FaPrescription />, count: prescriptions.length },
+    { key: 'appointments', label: 'Appointments', icon: <FaCalendar />, count: appointments.length },
+    {
+      key: 'reminders', label: 'Reminders', icon: <FaBell />,
+      count: reminders.filter(r => !r.isSent).length,
+    },
+  ];
+
+  const age = calcAge(pet.dateOfBirth);
+
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto animate-slideUp">
       {/* Back Button */}
-      <Link to="/owner/pets" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4">
+      <Link to="/owner/pets" className="inline-flex items-center gap-2 text-ink-500 hover:text-ink-800 mb-4 text-sm font-medium transition-colors">
         <FaArrowLeft /> Back to Pets
       </Link>
 
       <div className="grid lg:grid-cols-4 gap-6">
         {/* Sidebar */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl shadow-lg p-4 sticky top-20">
-            {/* Pet Profile Card */}
-            <div className="text-center mb-6">
-              <div className="w-24 h-24 rounded-full mx-auto overflow-hidden border-4 border-emerald-100 mb-3">
-                {pet.profileImage ? (
-                  <img src={pet.profileImage} alt={pet.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-emerald-100 flex items-center justify-center text-4xl text-emerald-600">
-                    🐾
-                  </div>
-                )}
-              </div>
-              <h2 className="text-xl font-bold text-gray-800">{pet.name}</h2>
-              <p className="text-sm text-gray-500">{pet.breed || pet.species}</p>
-              <div className="flex justify-center gap-4 mt-2 text-xs text-gray-500">
-                <span>🔄 {pet.gender || 'N/A'}</span>
-                <span>🎂 {pet.dateOfBirth ? `${new Date().getFullYear() - new Date(pet.dateOfBirth).getFullYear()} years` : 'N/A'}</span>
-                <span>⚖️ {pet.weight || 'N/A'} kg</span>
+          <div className="card sticky top-20 !p-0 overflow-hidden">
+            {/* Gradient banner + avatar */}
+            <div className="relative h-20 bg-gradient-to-r from-primary-600 to-primary-800">
+              <div className="absolute -bottom-10 inset-x-0 flex justify-center">
+                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-elevated bg-primary-100">
+                  {pet.profileImage ? (
+                    <img src={pet.profileImage} alt={pet.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-4xl text-primary-600">
+                      🐾
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
+            <div className="pt-12 pb-5 px-5 text-center">
+              <h2 className="text-xl font-bold text-ink-900 font-display">{pet.name}</h2>
+              <p className="text-sm text-ink-500">{pet.breed || pet.species}</p>
+
+              <div className="flex flex-wrap justify-center gap-1.5 mt-3">
+                <span className="badge-neutral"><FaVenusMars className="text-[10px]" /> {pet.gender || 'N/A'}</span>
+                <span className="badge-info"><FaBirthdayCake className="text-[10px]" /> {age != null ? `${age} yrs` : 'N/A'}</span>
+                <span className="badge-success"><FaWeight className="text-[10px]" /> {pet.weight || 'N/A'} kg</span>
+              </div>
+            </div>
+
+            <div className="divider !my-0" />
+
             {/* Navigation */}
-            <nav className="space-y-1">
-              <button
-                onClick={() => setActiveTab('overview')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition ${
-                  activeTab === 'overview' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <FaClipboardList /> Overview
-              </button>
-              <button
-                onClick={() => setActiveTab('medical')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition ${
-                  activeTab === 'medical' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <FaFileMedical /> Medical Records
-              </button>
-              <button
-                onClick={() => setActiveTab('vaccinations')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition ${
-                  activeTab === 'vaccinations' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <FaSyringe /> Vaccinations
-              </button>
-              <button
-                onClick={() => setActiveTab('prescriptions')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition ${
-                  activeTab === 'prescriptions' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <FaPrescription /> Prescriptions
-              </button>
-              <button
-                onClick={() => setActiveTab('appointments')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition ${
-                  activeTab === 'appointments' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <FaCalendar /> Appointments
-              </button>
-              <button
-                onClick={() => setActiveTab('reminders')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition ${
-                  activeTab === 'reminders' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <FaBell /> Reminders
-                {reminders.filter(r => !r.isSent).length > 0 && (
-                  <span className="ml-auto bg-pink-100 text-pink-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {reminders.filter(r => !r.isSent).length}
-                  </span>
-                )}
-              </button>
+            <nav className="p-3 space-y-1">
+              {tabs.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveTab(t.key)}
+                  className={activeTab === t.key
+                    ? 'tab-item-active w-full justify-start !border-b-0 !bg-primary-50 rounded-lg'
+                    : 'tab-item w-full justify-start !border-b-0 hover:bg-ink-50 rounded-lg'}
+                >
+                  {t.icon} {t.label}
+                  {t.count > 0 && <span className="ml-auto badge-neutral">{t.count}</span>}
+                </button>
+              ))}
             </nav>
 
+            <div className="divider !mt-0" />
+
             {/* Quick Actions */}
-            <div className="mt-6 pt-6 border-t border-gray-100 space-y-2">
-              <Link to={`/owner/appointments/book?petId=${pet.id}`} className="block w-full bg-emerald-600 text-white text-center py-2 rounded-lg hover:bg-emerald-700 transition text-sm">
-                📅 Book Appointment
+            <div className="px-5 pb-5 space-y-2">
+              <Link to={`/owner/appointments/book?petId=${pet.id}`} className="btn-primary w-full btn-sm">
+                <FaCalendar /> Book Appointment
               </Link>
-              <Link to={`/owner/pets/edit/${pet.id}`} className="block w-full bg-gray-100 text-gray-700 text-center py-2 rounded-lg hover:bg-gray-200 transition text-sm">
-                ✏️ Edit Profile
+              <Link to={`/owner/pets/edit/${pet.id}`} className="btn-secondary w-full btn-sm">
+                <FaEdit /> Edit Profile
               </Link>
             </div>
           </div>
@@ -335,44 +329,34 @@ const PetProfile = () => {
             <>
               {/* Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl shadow-lg p-4 text-center">
-                  <div className="text-2xl text-emerald-600 mb-1">💊</div>
-                  <div className="text-xl font-bold text-gray-800">{medicalRecords.length}</div>
-                  <div className="text-xs text-gray-500">Medical Records</div>
+                <div className="stat-card !p-4">
+                  <span className="stat-icon bg-purple-100 text-purple-600 !w-10 !h-10"><FaFileMedical /></span>
+                  <div><h3 className="stat-value !text-xl">{medicalRecords.length}</h3><p className="stat-label">Records</p></div>
                 </div>
-                <div className="bg-white rounded-xl shadow-lg p-4 text-center">
-                  <div className="text-2xl text-blue-600 mb-1">💉</div>
-                  <div className="text-xl font-bold text-gray-800">{vaccinations.length}</div>
-                  <div className="text-xs text-gray-500">Vaccinations</div>
+                <div className="stat-card !p-4">
+                  <span className="stat-icon bg-blue-100 text-blue-600 !w-10 !h-10"><FaSyringe /></span>
+                  <div><h3 className="stat-value !text-xl">{vaccinations.length}</h3><p className="stat-label">Vaccinations</p></div>
                 </div>
-                <div className="bg-white rounded-xl shadow-lg p-4 text-center">
-                  <div className="text-2xl text-orange-600 mb-1">📅</div>
-                  <div className="text-xl font-bold text-gray-800">{appointments.filter(a => a.status === 'PENDING').length}</div>
-                  <div className="text-xs text-gray-500">Pending Appointments</div>
+                <div className="stat-card !p-4">
+                  <span className="stat-icon bg-amber-100 text-amber-600 !w-10 !h-10"><FaCalendar /></span>
+                  <div><h3 className="stat-value !text-xl">{appointments.filter(a => a.status === 'PENDING').length}</h3><p className="stat-label">Pending Appts</p></div>
                 </div>
-                <div className="bg-white rounded-xl shadow-lg p-4 text-center">
-                  <div className="text-2xl text-purple-600 mb-1">⚖️</div>
-                  <div className="text-xl font-bold text-gray-800">{pet.weight || 0} kg</div>
-                  <div className="text-xs text-gray-500">Current Weight</div>
+                <div className="stat-card !p-4">
+                  <span className="stat-icon bg-emerald-100 text-emerald-600 !w-10 !h-10"><FaWeight /></span>
+                  <div><h3 className="stat-value !text-xl">{pet.weight || 0} kg</h3><p className="stat-label">Current Weight</p></div>
                 </div>
               </div>
 
               {/* Weight Chart */}
-              <div className="bg-white rounded-2xl shadow-lg p-6">
+              <div className="card">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <FaChartLine className="text-emerald-600" />
-                    Weight Tracking
-                  </h3>
-                  <button
-                    onClick={openWeightModal}
-                    className="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition flex items-center gap-1"
-                  >
+                  <h3 className="section-title mb-0"><FaChartLine className="text-primary-600" /> Weight Tracking</h3>
+                  <button onClick={openWeightModal} className="btn-primary btn-sm">
                     <FaWeight /> Log Weight
                   </button>
                 </div>
                 {weightHistory.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
+                  <p className="text-ink-400 text-center py-8">
                     No weight entries yet — log the first one to start tracking {pet.name}'s weight over time.
                   </p>
                 ) : (
@@ -380,33 +364,30 @@ const PetProfile = () => {
                     <div className="h-48">
                       <Line data={weightData} options={chartOptions} />
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-wrap gap-2">
                       {weightHistory.slice(-6).reverse().map((r) => {
                         const editable = r.source === 'OWNER';
                         return (
                           <div
                             key={r.id}
-                            className={`text-xs border rounded-full pl-2.5 pr-1 py-1 flex items-center gap-1 transition ${
-                              editable
-                                ? 'bg-gray-50 border-gray-100 text-gray-600'
-                                : 'bg-gray-50 border-gray-100 text-gray-600'
-                            }`}
+                            className="text-xs bg-ink-50 border border-ink-100 rounded-full pl-2.5 pr-1 py-1 flex items-center gap-1 transition"
                           >
                             <button
                               type="button"
                               onClick={() => openEditWeightModal(r)}
                               disabled={!editable}
                               title={editable ? 'Click to edit this entry' : "Recorded by a doctor — ask your vet to correct it"}
-                              className={`flex items-center gap-1 ${editable ? 'cursor-pointer' : 'cursor-default'}`}
+                              className={`flex items-center gap-1 ${editable ? 'cursor-pointer hover:text-primary-700' : 'cursor-default'}`}
                             >
                               {editable ? (
-                                <FaPencilAlt className="text-[9px] text-gray-400" />
+                                <FaPencilAlt className="text-[9px] text-ink-400" />
                               ) : (
-                                <FaLock className="text-[9px] text-gray-400" />
+                                <FaLock className="text-[9px] text-ink-400" />
                               )}
-                              {r.weight} kg · {new Date(r.recordedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              <span className="text-ink-700 font-medium">{r.weight} kg</span>
+                              <span className="text-ink-400">· {new Date(r.recordedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
                               {' · '}
-                              <span className={r.source === 'DOCTOR' ? 'text-emerald-600 font-medium' : 'text-gray-500'}>
+                              <span className={r.source === 'DOCTOR' ? 'text-primary-600 font-medium' : 'text-ink-500'}>
                                 {r.source === 'DOCTOR' ? (r.recordedByName || 'Doctor') : 'You'}
                               </span>
                               {r.editedByName && (
@@ -418,7 +399,7 @@ const PetProfile = () => {
                                 type="button"
                                 onClick={() => handleDeleteWeight(r)}
                                 title="Delete this entry"
-                                className="ml-0.5 p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                className="ml-0.5 p-1 rounded-full text-ink-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
                               >
                                 <FaTrash className="text-[9px]" />
                               </button>
@@ -432,24 +413,24 @@ const PetProfile = () => {
               </div>
 
               {/* Recent Medical Records */}
-              <div className="bg-white rounded-2xl shadow-lg p-6">
+              <div className="card">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">📋 Recent Medical Records</h3>
-                  <button onClick={() => setActiveTab('medical')} className="text-sm text-emerald-600 hover:underline">
+                  <h3 className="section-title mb-0"><FaFileMedical className="text-primary-600" /> Recent Medical Records</h3>
+                  <button onClick={() => setActiveTab('medical')} className="text-sm text-primary-600 hover:underline font-medium">
                     View All
                   </button>
                 </div>
                 {medicalRecords.slice(0, 3).length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No medical records</p>
+                  <p className="text-ink-400 text-center py-6">No medical records</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {medicalRecords.slice(0, 3).map((record) => (
-                      <div key={record.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div key={record.id} className="flex items-center justify-between p-3 bg-ink-50 rounded-xl">
                         <div>
-                          <p className="font-medium text-gray-800">{record.diagnosis}</p>
-                          <p className="text-sm text-gray-500">{record.treatment}</p>
+                          <p className="font-medium text-ink-800">{record.diagnosis}</p>
+                          <p className="text-sm text-ink-500">{record.treatment}</p>
                         </div>
-                        <span className="text-xs text-gray-400">{record.recordDate?.split('T')[0]}</span>
+                        <span className="text-xs text-ink-400 shrink-0">{record.recordDate?.split('T')[0]}</span>
                       </div>
                     ))}
                   </div>
@@ -460,28 +441,25 @@ const PetProfile = () => {
 
           {/* Medical Records Tab */}
           {activeTab === 'medical' && (
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <FaFileMedical className="text-emerald-600" />
-                Medical History
-              </h3>
+            <div className="card">
+              <h3 className="section-title"><FaFileMedical className="text-primary-600" /> Medical History</h3>
               {medicalRecords.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No medical records found</p>
+                <p className="text-ink-400 text-center py-8">No medical records found</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {medicalRecords.map((record) => (
-                    <div key={record.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
+                    <div key={record.id} className="card-hover !shadow-none border !p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-semibold text-gray-800">{record.diagnosis}</h4>
-                          <p className="text-sm text-gray-600">{record.treatment}</p>
-                          {record.notes && <p className="text-sm text-gray-500 mt-1">📝 {record.notes}</p>}
+                          <h4 className="font-semibold text-ink-800">{record.diagnosis}</h4>
+                          <p className="text-sm text-ink-600">{record.treatment}</p>
+                          {record.notes && <p className="text-sm text-ink-500 mt-1">{record.notes}</p>}
                         </div>
-                        <span className="text-sm text-gray-400">{record.recordDate?.split('T')[0]}</span>
+                        <span className="text-xs text-ink-400 shrink-0">{record.recordDate?.split('T')[0]}</span>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
-                        <FaUserMd className="text-gray-400" />
-                        <span className="text-sm text-gray-500">Dr. {record.doctorName}</span>
+                        <FaUserMd className="text-ink-400 text-xs" />
+                        <span className="text-sm text-ink-500">Dr. {record.doctorName}</span>
                       </div>
                     </div>
                   ))}
@@ -492,33 +470,30 @@ const PetProfile = () => {
 
           {/* Vaccinations Tab */}
           {activeTab === 'vaccinations' && (
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <FaSyringe className="text-emerald-600" />
-                Vaccinations
-              </h3>
+            <div className="card">
+              <h3 className="section-title"><FaSyringe className="text-primary-600" /> Vaccinations</h3>
               {vaccinations.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No vaccinations found</p>
+                <p className="text-ink-400 text-center py-8">No vaccinations found</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {vaccinations.map((vac) => (
-                    <div key={vac.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
+                    <div key={vac.id} className="card-hover !shadow-none border !p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-semibold text-gray-800">{vac.vaccineName}</h4>
-                          <div className="flex items-center gap-4 mt-1">
-                            <span className="text-sm text-gray-500">📅 {vac.vaccinationDate}</span>
+                          <h4 className="font-semibold text-ink-800">{vac.vaccineName}</h4>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                            <span className="text-sm text-ink-500">Given: {vac.vaccinationDate}</span>
                             {vac.nextVaccinationDate && (
-                              <span className="text-sm text-orange-500">⏰ Next: {vac.nextVaccinationDate}</span>
+                              <span className="text-sm text-amber-600">Next due: {vac.nextVaccinationDate}</span>
                             )}
                           </div>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(vac.isActive ? 'DONE' : 'TO_DO')}`}>
-                          {getStatusIcon(vac.isActive ? 'DONE' : 'TO_DO')}
-                          {vac.isActive ? 'Done' : 'Pending'}
+                        <span className={`${vac.isActive ? 'badge-success' : 'badge-neutral'} shrink-0`}>
+                          {vac.isActive ? <FaCheckCircle className="text-[10px]" /> : <FaClock className="text-[10px]" />}
+                          {vac.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
-                      {vac.notes && <p className="text-sm text-gray-500 mt-2">📝 {vac.notes}</p>}
+                      {vac.notes && <p className="text-sm text-ink-500 mt-2">{vac.notes}</p>}
                     </div>
                   ))}
                 </div>
@@ -528,35 +503,30 @@ const PetProfile = () => {
 
           {/* Prescriptions Tab */}
           {activeTab === 'prescriptions' && (
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <FaPrescription className="text-emerald-600" />
-                Prescriptions
-              </h3>
+            <div className="card">
+              <h3 className="section-title"><FaPrescription className="text-primary-600" /> Prescriptions</h3>
               {prescriptions.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No prescriptions found</p>
+                <p className="text-ink-400 text-center py-8">No prescriptions found</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {prescriptions.map((pres) => (
-                    <div key={pres.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
+                    <div key={pres.id} className="card-hover !shadow-none border !p-4">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-gray-800">{pres.medicationName}</h4>
+                          <h4 className="font-semibold text-ink-800">{pres.medicationName}</h4>
                           <div className="grid sm:grid-cols-3 gap-2 mt-2">
-                            <p className="text-sm text-gray-600"><span className="font-medium">Dosage:</span> {pres.dosage}</p>
-                            <p className="text-sm text-gray-600"><span className="font-medium">Frequency:</span> {pres.frequency}</p>
-                            <p className="text-sm text-gray-600"><span className="font-medium">Duration:</span> {pres.duration}</p>
+                            <p className="text-sm text-ink-600"><span className="font-medium text-ink-700">Dosage:</span> {pres.dosage}</p>
+                            <p className="text-sm text-ink-600"><span className="font-medium text-ink-700">Frequency:</span> {pres.frequency}</p>
+                            <p className="text-sm text-ink-600"><span className="font-medium text-ink-700">Duration:</span> {pres.duration}</p>
                           </div>
                           {pres.instructions && (
-                            <p className="text-sm text-gray-500 mt-2">📋 {pres.instructions}</p>
+                            <p className="text-sm text-ink-500 mt-2">{pres.instructions}</p>
                           )}
                           {pres.doctorName && (
-                            <p className="text-xs text-gray-400 mt-2">👨‍⚕️ Dr. {pres.doctorName}</p>
+                            <p className="text-xs text-ink-400 mt-2">Dr. {pres.doctorName}</p>
                           )}
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium shrink-0 ${
-                          pres.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                        }`}>
+                        <span className={`${pres.isActive ? 'badge-success' : 'badge-neutral'} shrink-0`}>
                           {pres.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
@@ -569,24 +539,21 @@ const PetProfile = () => {
 
           {/* Appointments Tab */}
           {activeTab === 'appointments' && (
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <FaCalendar className="text-emerald-600" />
-                Appointments
-              </h3>
+            <div className="card">
+              <h3 className="section-title"><FaCalendar className="text-primary-600" /> Appointments</h3>
               {appointments.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No appointments found</p>
+                <p className="text-ink-400 text-center py-8">No appointments found</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {appointments.map((app) => (
-                    <div key={app.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
+                    <div key={app.id} className="card-hover !shadow-none border !p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-semibold text-gray-800">Dr. {app.doctorName}</h4>
-                          <p className="text-sm text-gray-500">📅 {app.appointmentDate} at {app.appointmentTime}</p>
-                          {app.notes && <p className="text-sm text-gray-500 mt-1">📝 {app.notes}</p>}
+                          <h4 className="font-semibold text-ink-800">Dr. {app.doctorName}</h4>
+                          <p className="text-sm text-ink-500">{app.appointmentDate} at {app.appointmentTime}</p>
+                          {app.notes && <p className="text-sm text-ink-500 mt-1">{app.notes}</p>}
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(app.status)}`}>
+                        <span className={`${getStatusBadgeClass(app.status)} shrink-0`}>
                           {getStatusIcon(app.status)}
                           {app.status}
                         </span>
@@ -600,33 +567,28 @@ const PetProfile = () => {
 
           {/* Reminders Tab */}
           {activeTab === 'reminders' && (
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <FaBell className="text-emerald-600" />
-                Reminders
-              </h3>
+            <div className="card">
+              <h3 className="section-title"><FaBell className="text-primary-600" /> Reminders</h3>
               {reminders.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No reminders set for this pet</p>
+                <p className="text-ink-400 text-center py-8">No reminders set for this pet</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {reminders.map((r) => (
-                    <div key={r.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
+                    <div key={r.id} className="card-hover !shadow-none border !p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-semibold text-gray-800">{r.message}</h4>
-                          <p className="text-sm text-gray-500 mt-1">
-                            📅 {new Date(r.reminderDateTime).toLocaleString(undefined, {
+                          <h4 className="font-semibold text-ink-800">{r.message}</h4>
+                          <p className="text-sm text-ink-500 mt-1">
+                            {new Date(r.reminderDateTime).toLocaleString(undefined, {
                               weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                             })}
                           </p>
                           {r.doctorName && (
-                            <p className="text-sm text-gray-500 mt-1">👨‍⚕️ Dr. {r.doctorName}</p>
+                            <p className="text-sm text-ink-500 mt-1">Dr. {r.doctorName}</p>
                           )}
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          r.isSent ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                        }`}>
-                          {r.isSent ? '✅ Sent' : '⏰ Pending'}
+                        <span className={r.isSent ? 'badge-success' : 'badge-warning'}>
+                          {r.isSent ? <><FaCheckCircle className="text-[10px]" /> Sent</> : <><FaClock className="text-[10px]" /> Pending</>}
                         </span>
                       </div>
                     </div>
@@ -640,59 +602,49 @@ const PetProfile = () => {
 
       {/* Log Weight Modal */}
       {showWeightModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <FaWeight className="text-emerald-600" /> {editingWeightId ? 'Edit Weight Entry' : `Log ${pet.name}'s Weight`}
-            </h3>
+        <div className="modal-overlay">
+          <div className="modal-content !max-w-sm">
+            <h3 className="section-title"><FaWeight className="text-primary-600" /> {editingWeightId ? 'Edit Weight Entry' : `Log ${pet.name}'s Weight`}</h3>
             <form onSubmit={handleLogWeight} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                <label className="block text-sm font-medium text-ink-700 mb-1">Weight (kg)</label>
                 <input
                   type="number"
                   step="0.1"
                   min="0.1"
                   value={weightForm.weight}
                   onChange={(e) => setWeightForm({ ...weightForm, weight: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="input-field"
                   placeholder="e.g. 4.5"
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <label className="block text-sm font-medium text-ink-700 mb-1">Date</label>
                 <input
                   type="date"
                   value={weightForm.recordedDate}
                   max={new Date().toISOString().split('T')[0]}
                   onChange={(e) => setWeightForm({ ...weightForm, recordedDate: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="input-field"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <label className="block text-sm font-medium text-ink-700 mb-1">Notes (optional)</label>
                 <input
                   type="text"
                   value={weightForm.notes}
                   onChange={(e) => setWeightForm({ ...weightForm, notes: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="input-field"
                   placeholder="e.g. After vet visit"
                 />
               </div>
               {weightError && <p className="text-sm text-red-600">{weightError}</p>}
               <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowWeightModal(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition"
-                >
+                <button type="button" onClick={() => setShowWeightModal(false)} className="btn-secondary flex-1">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={weightSaving}
-                  className="flex-1 bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition disabled:opacity-60"
-                >
+                <button type="submit" disabled={weightSaving} className="btn-primary flex-1 disabled:opacity-60">
                   {weightSaving ? 'Saving...' : (editingWeightId ? 'Update' : 'Save')}
                 </button>
               </div>

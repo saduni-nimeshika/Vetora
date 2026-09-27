@@ -77,6 +77,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/owner/vaccinations/**").hasRole("PET_OWNER")
                         .requestMatchers("/api/v1/owner/appointments/**").hasRole("PET_OWNER")
                         .requestMatchers("/api/v1/owner/prescriptions/**").hasRole("PET_OWNER")
+                        .requestMatchers("/api/v1/owner/doctors/**").hasRole("PET_OWNER")
 
                         .anyRequest().authenticated()
                 )

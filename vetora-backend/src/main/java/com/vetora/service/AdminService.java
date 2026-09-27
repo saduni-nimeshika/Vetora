@@ -4,7 +4,9 @@ import com.vetora.entity.Doctor;
 import com.vetora.entity.User;
 import com.vetora.enums.Role;
 import com.vetora.repository.DoctorRepository;
+import com.vetora.repository.PasswordResetTokenRepository;
 import com.vetora.repository.UserRepository;
+import com.vetora.repository.VerificationTokenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,13 +23,19 @@ public class AdminService {
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final VerificationTokenRepository verificationTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     public AdminService(DoctorRepository doctorRepository,
                         UserRepository userRepository,
-                        EmailService emailService) {
+                        EmailService emailService,
+                        VerificationTokenRepository verificationTokenRepository,
+                        PasswordResetTokenRepository passwordResetTokenRepository) {
         this.doctorRepository = doctorRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
+        this.verificationTokenRepository = verificationTokenRepository;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
     }
 
     @Transactional
@@ -63,6 +71,17 @@ public class AdminService {
         }
 
         doctorRepository.delete(doctor);
+
+        // 🐛 FIX: every registered user has a row in verification_tokens
+        // (created at sign-up), and possibly one in password_reset_tokens too.
+        // Both have a NOT NULL user_id foreign key with no cascade, so calling
+        // userRepository.delete(user) before removing these rows threw a
+        // DataIntegrityViolationException (FK constraint violation) and the
+        // whole reject action failed. Deleting the dependent token rows first
+        // lets the user row be deleted cleanly.
+        verificationTokenRepository.deleteByUser(user);
+        passwordResetTokenRepository.deleteByUser(user);
+
         userRepository.delete(user);
     }
 

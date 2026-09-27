@@ -1,6 +1,7 @@
 package com.vetora.controller;
 
 import com.vetora.entity.Doctor;
+import com.vetora.repository.DoctorRatingRepository;
 import com.vetora.repository.DoctorRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,9 +14,11 @@ import java.util.stream.Collectors;
 public class DoctorSearchController {
 
     private final DoctorRepository doctorRepository;
+    private final DoctorRatingRepository doctorRatingRepository;
 
-    public DoctorSearchController(DoctorRepository doctorRepository) {
+    public DoctorSearchController(DoctorRepository doctorRepository, DoctorRatingRepository doctorRatingRepository) {
         this.doctorRepository = doctorRepository;
+        this.doctorRatingRepository = doctorRatingRepository;
     }
 
     // Approximate centroid coordinates for each Sri Lankan district. Used as a
@@ -95,6 +98,11 @@ public class DoctorSearchController {
         map.put("district", doctor.getDistrict());
         map.put("city", doctor.getCity());
         map.put("profileImage", doctor.getProfileImage());
+
+        Double avgRating = doctorRatingRepository.findAverageRatingByDoctorId(doctor.getId());
+        long ratingCount = doctorRatingRepository.countByDoctorId(doctor.getId());
+        map.put("averageRating", avgRating != null ? Math.round(avgRating * 10.0) / 10.0 : 0.0);
+        map.put("totalRatings", ratingCount);
 
         double[] resolved = resolveLocation(doctor);
         boolean isApproximate = doctor.getLatitude() == null || doctor.getLongitude() == null;
@@ -213,5 +221,8 @@ public class DoctorSearchController {
         return ResponseEntity.ok(response);
     }
 }
+
+
+
 
 

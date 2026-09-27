@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
   FaPaw, FaArrowLeft, FaFileMedical, FaSyringe, FaPrescriptionBottle,
   FaCalendar, FaBell, FaPlus, FaUser, FaPhone, FaEnvelope,
-  FaClipboardList, FaCheckCircle, FaClock, FaTimesCircle, FaWeight, FaChartLine, FaPencilAlt,
+  FaClipboardList, FaCheckCircle, FaClock, FaTimesCircle, FaChartLine,
 } from 'react-icons/fa';
 import { Line } from 'react-chartjs-2';
 import {
@@ -40,11 +40,6 @@ const PatientProfile = () => {
   const [appointments, setAppointments] = useState([]);
   const [weightHistory, setWeightHistory] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
-  const [showWeightModal, setShowWeightModal] = useState(false);
-  const [weightForm, setWeightForm] = useState({ weight: '', recordedDate: '', notes: '' });
-  const [editingWeightId, setEditingWeightId] = useState(null);
-  const [weightSaving, setWeightSaving] = useState(false);
-  const [weightError, setWeightError] = useState('');
 
   useEffect(() => {
     fetchAll();
@@ -75,58 +70,6 @@ const PatientProfile = () => {
       toast.error('Failed to load patient profile');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const openWeightModal = () => {
-    setEditingWeightId(null);
-    setWeightForm({
-      weight: '',
-      recordedDate: new Date().toISOString().split('T')[0],
-      notes: ''
-    });
-    setWeightError('');
-    setShowWeightModal(true);
-  };
-
-  const openEditWeightModal = (record) => {
-    setEditingWeightId(record.id);
-    setWeightForm({
-      weight: String(record.weight),
-      recordedDate: record.recordedDate,
-      notes: record.notes || ''
-    });
-    setWeightError('');
-    setShowWeightModal(true);
-  };
-
-  const handleLogWeight = async (e) => {
-    e.preventDefault();
-    if (!weightForm.weight || parseFloat(weightForm.weight) <= 0) {
-      setWeightError('Please enter a valid weight');
-      return;
-    }
-    try {
-      setWeightSaving(true);
-      setWeightError('');
-      const payload = {
-        weight: parseFloat(weightForm.weight),
-        recordedDate: weightForm.recordedDate || undefined,
-        notes: weightForm.notes || undefined
-      };
-      if (editingWeightId) {
-        await api.put(`/api/v1/doctor/pets/weight/${editingWeightId}`, payload);
-        toast.success('Weight entry updated');
-      } else {
-        await api.post(`/api/v1/doctor/pets/${petId}/weight`, payload);
-        toast.success('Weight logged');
-      }
-      setShowWeightModal(false);
-      await fetchAll();
-    } catch (error) {
-      setWeightError(error.response?.data?.error || 'Failed to save weight. Please try again.');
-    } finally {
-      setWeightSaving(false);
     }
   };
 
@@ -281,9 +224,6 @@ const PatientProfile = () => {
               <div className="card">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="section-title mb-0"><FaChartLine className="text-primary-600" /> Weight Tracking</h3>
-                  <button onClick={openWeightModal} className="btn-primary btn-sm">
-                    <FaWeight /> Log Weight
-                  </button>
                 </div>
                 {weightHistory.length === 0 ? (
                   <p className="text-ink-400 text-center py-6">No weight entries yet</p>
@@ -294,24 +234,22 @@ const PatientProfile = () => {
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {weightHistory.slice(-6).reverse().map((r) => (
-                        <button
+                        <span
                           key={r.id}
-                          onClick={() => openEditWeightModal(r)}
-                          title="Click to edit this entry"
-                          className="text-xs bg-ink-50 hover:bg-ink-100 border border-ink-100 rounded-full px-2.5 py-1 text-ink-600 flex items-center gap-1 transition"
+                          className="text-xs bg-ink-50 border border-ink-100 rounded-full px-2.5 py-1 text-ink-600 flex items-center gap-1"
                         >
-                          <FaPencilAlt className="text-[9px] text-ink-400" />
                           {r.weight} kg · {formatDate(r.recordedDate)}
                           {' · '}
                           <span className={r.source === 'DOCTOR' ? 'text-primary-600 font-medium' : 'text-ink-500'}>
-                            {r.source === 'DOCTOR' ? (r.recordedByName || 'You') : (r.recordedByName || 'Owner')}
+                            {r.source === 'DOCTOR' ? (r.recordedByName || 'Doctor') : (r.recordedByName || 'Owner')}
                           </span>
                           {r.editedByName && (
                             <span className="text-amber-600"> (edited by {r.editedByName})</span>
                           )}
-                        </button>
+                        </span>
                       ))}
                     </div>
+                    <p className="text-xs text-ink-400 mt-2">Only the pet owner can add or edit weight entries.</p>
                   </>
                 )}
               </div>
@@ -465,63 +403,23 @@ const PatientProfile = () => {
         </div>
       </div>
 
-      {/* Log Weight Modal */}
-      {showWeightModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card w-full max-w-sm">
-            <h3 className="section-title"><FaWeight className="text-primary-600" /> {editingWeightId ? `Edit Weight Entry` : `Log ${pet.name}'s Weight`}</h3>
-            <form onSubmit={handleLogWeight} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-1">Weight (kg)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  value={weightForm.weight}
-                  onChange={(e) => setWeightForm({ ...weightForm, weight: e.target.value })}
-                  className="input-field"
-                  placeholder="e.g. 4.5"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  value={weightForm.recordedDate}
-                  max={new Date().toISOString().split('T')[0]}
-                  onChange={(e) => setWeightForm({ ...weightForm, recordedDate: e.target.value })}
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-1">Notes (optional)</label>
-                <input
-                  type="text"
-                  value={weightForm.notes}
-                  onChange={(e) => setWeightForm({ ...weightForm, notes: e.target.value })}
-                  className="input-field"
-                  placeholder="e.g. Measured during checkup"
-                />
-              </div>
-              {weightError && <p className="text-sm text-red-600">{weightError}</p>}
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowWeightModal(false)} className="btn-secondary flex-1">
-                  Cancel
-                </button>
-                <button type="submit" disabled={weightSaving} className="btn-primary flex-1 disabled:opacity-60">
-                  {weightSaving ? 'Saving...' : (editingWeightId ? 'Update' : 'Save')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
 export default PatientProfile;
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

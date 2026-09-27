@@ -1,8 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { FaUsers, FaStethoscope, FaCalendar, FaPaw, FaUserCheck, FaUserTimes } from 'react-icons/fa';
+import {
+  FaUsers, FaStethoscope, FaCalendar, FaPaw, FaUserClock,
+  FaUserCheck, FaUserTimes, FaArrowRight, FaCrown,
+} from 'react-icons/fa';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+};
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -55,8 +69,10 @@ const AdminDashboard = () => {
         pendingDoctors: prev.pendingDoctors - 1,
         doctors: prev.doctors + 1
       }));
+      toast.success('Doctor approved successfully!');
     } catch (error) {
       console.error('Error approving doctor:', error);
+      toast.error('Failed to approve doctor');
     }
   };
 
@@ -68,106 +84,143 @@ const AdminDashboard = () => {
         ...prev,
         pendingDoctors: prev.pendingDoctors - 1
       }));
+      toast.success('Doctor rejected successfully!');
     } catch (error) {
       console.error('Error rejecting doctor:', error);
+      toast.error('Failed to reject doctor');
     }
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="spinner w-12 h-12" />
       </div>
     );
   }
 
+  const statCards = [
+    { icon: <FaUsers />, value: stats.users, label: 'Total Users', color: 'bg-blue-100 text-blue-600' },
+    { icon: <FaStethoscope />, value: stats.doctors, label: 'Doctors', color: 'bg-primary-100 text-primary-600' },
+    { icon: <FaUserClock />, value: stats.pendingDoctors, label: 'Pending', color: 'bg-amber-100 text-amber-600' },
+    { icon: <FaPaw />, value: stats.pets, label: 'Total Pets', color: 'bg-pink-100 text-pink-600' },
+    { icon: <FaCalendar />, value: stats.appointments, label: 'Appointments', color: 'bg-purple-100 text-purple-600' },
+  ];
+
+  const quickActions = [
+    {
+      to: '/admin/pending-doctors',
+      icon: <FaUserClock />,
+      iconColor: 'bg-amber-100 text-amber-600',
+      title: 'Pending Doctors',
+      desc: `${stats.pendingDoctors} doctor${stats.pendingDoctors === 1 ? '' : 's'} waiting for review`,
+    },
+    {
+      to: '/admin/users',
+      icon: <FaUsers />,
+      iconColor: 'bg-blue-100 text-blue-600',
+      title: 'All Users',
+      desc: 'Manage system users',
+    },
+    {
+      to: '/admin/appointments',
+      icon: <FaCalendar />,
+      iconColor: 'bg-purple-100 text-purple-600',
+      title: 'Appointments',
+      desc: 'View all appointments',
+    },
+  ];
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">
-        👑 Welcome, {user?.name}!
-      </h1>
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-7xl mx-auto">
+      {/* Header */}
+      <motion.div variants={itemVariants} className="mb-8">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-ink-900 font-display flex items-center gap-2.5">
+          <FaCrown className="text-accent-500" /> Welcome, {user?.name}
+        </h1>
+        <p className="text-ink-400 mt-1 text-sm">Here&rsquo;s an overview of the whole Vetora system</p>
+      </motion.div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition">
-          <FaUsers className="text-2xl text-blue-600 mx-auto mb-1" />
-          <h3 className="text-xl font-bold">{stats.users}</h3>
-          <p className="text-xs text-gray-600">Total Users</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition">
-          <FaStethoscope className="text-2xl text-emerald-600 mx-auto mb-1" />
-          <h3 className="text-xl font-bold">{stats.doctors}</h3>
-          <p className="text-xs text-gray-600">Doctors</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition">
-          <FaUserCheck className="text-2xl text-orange-600 mx-auto mb-1" />
-          <h3 className="text-xl font-bold text-orange-600">{stats.pendingDoctors}</h3>
-          <p className="text-xs text-gray-600">Pending</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition">
-          <FaPaw className="text-2xl text-pink-600 mx-auto mb-1" />
-          <h3 className="text-xl font-bold">{stats.pets}</h3>
-          <p className="text-xs text-gray-600">Total Pets</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-lg p-4 text-center hover:shadow-xl transition">
-          <FaCalendar className="text-2xl text-purple-600 mx-auto mb-1" />
-          <h3 className="text-xl font-bold">{stats.appointments}</h3>
-          <p className="text-xs text-gray-600">Appointments</p>
-        </div>
-      </div>
+      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        {statCards.map((s) => (
+          <div key={s.label} className="stat-card">
+            <span className={`stat-icon ${s.color}`}>{s.icon}</span>
+            <div>
+              <h3 className="stat-value">{s.value}</h3>
+              <p className="stat-label">{s.label}</p>
+            </div>
+          </div>
+        ))}
+      </motion.div>
 
       {/* Quick Actions */}
-      <div className="grid md:grid-cols-3 gap-4 mb-8">
-        <Link to="/admin/pending-doctors" className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-orange-500">
-          <h3 className="font-semibold text-gray-800">📋 Pending Doctors</h3>
-          <p className="text-sm text-gray-600">{stats.pendingDoctors} doctors waiting</p>
-        </Link>
-        <Link to="/admin/users" className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-blue-500">
-          <h3 className="font-semibold text-gray-800">👥 All Users</h3>
-          <p className="text-sm text-gray-600">Manage system users</p>
-        </Link>
-        <Link to="/admin/appointments" className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition border-l-4 border-purple-500">
-          <h3 className="font-semibold text-gray-800">📅 Appointments</h3>
-          <p className="text-sm text-gray-600">View all appointments</p>
-        </Link>
-      </div>
+      <motion.div variants={itemVariants} className="grid md:grid-cols-3 gap-4 mb-8">
+        {quickActions.map((a) => (
+          <Link key={a.to} to={a.to} className="card-hover flex items-center gap-4">
+            <span className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg shrink-0 ${a.iconColor}`}>
+              {a.icon}
+            </span>
+            <div className="flex-1">
+              <h3 className="font-bold text-ink-900">{a.title}</h3>
+              <p className="text-sm text-ink-500">{a.desc}</p>
+            </div>
+            <FaArrowRight className="text-ink-300 shrink-0" />
+          </Link>
+        ))}
+      </motion.div>
 
       {/* Pending Doctors List */}
       {pendingDoctors.length > 0 && (
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">⏳ Pending Doctor Approvals</h3>
+        <motion.div variants={itemVariants} className="card">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="section-title mb-0"><FaUserClock className="text-amber-500" /> Pending Doctor Approvals</h3>
+            <span className="badge-warning">{pendingDoctors.length} waiting</span>
+          </div>
           <div className="space-y-3">
             {pendingDoctors.slice(0, 3).map((doctor) => (
-              <div key={doctor.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-800">{doctor.user?.name}</p>
-                  <p className="text-sm text-gray-600">{doctor.specialisation} • {doctor.clinicName}</p>
+              <div key={doctor.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-ink-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <span className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">
+                    <FaStethoscope />
+                  </span>
+                  <div>
+                    <p className="font-semibold text-ink-800">{doctor.user?.name}</p>
+                    <p className="text-sm text-ink-500">{doctor.specialisation} · {doctor.clinicName}</p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
                   <button
                     onClick={() => handleApprove(doctor.id)}
-                    className="px-3 py-1 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
+                    className="btn-primary btn-sm"
                   >
-                    ✅ Approve
+                    <FaUserCheck /> Approve
                   </button>
                   <button
                     onClick={() => handleReject(doctor.id)}
-                    className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+                    className="btn-danger btn-sm"
                   >
-                    ❌ Reject
+                    <FaUserTimes /> Reject
                   </button>
                 </div>
               </div>
             ))}
           </div>
           {pendingDoctors.length > 3 && (
-            <Link to="/admin/pending-doctors" className="text-emerald-600 hover:underline text-sm mt-3 block">
-              View all {pendingDoctors.length} pending doctors →
+            <Link to="/admin/pending-doctors" className="inline-flex items-center gap-1.5 text-primary-600 hover:underline text-sm mt-4 font-medium">
+              View all {pendingDoctors.length} pending doctors <FaArrowRight className="text-xs" />
             </Link>
           )}
-        </div>
+        </motion.div>
       )}
-    </div>
+
+      {pendingDoctors.length === 0 && (
+        <motion.div variants={itemVariants} className="empty-state">
+          <FaUserCheck className="text-5xl text-ink-300 mb-3" />
+          <p className="text-ink-500">No pending doctor approvals right now — all caught up!</p>
+        </motion.div>
+      )}
+    </motion.div>
   );
 };
 

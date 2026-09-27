@@ -291,46 +291,10 @@ public class PetController {
 
 
     // ========== DOCTOR ENDPOINTS ==========
-
-    // ✅ Doctor: Log a weight entry for a patient during a visit
-    @PostMapping("/doctor/pets/{petId}/weight")
-    public ResponseEntity<?> doctorAddWeightRecord(@PathVariable Long petId,
-                                                   @Valid @RequestBody WeightRecordRequestDTO request) {
-        try {
-            String doctorEmail = getCurrentUserEmail();
-            WeightRecordResponseDTO record = petService.addWeightRecordByDoctor(petId, request, doctorEmail);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("record", record);
-            response.put("message", "✅ Weight logged successfully!");
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (RuntimeException e) {
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
-    }
-
-    // ✅ Doctor: Correct an existing weight entry (their own, or the owner's)
-    @PutMapping("/doctor/pets/weight/{recordId}")
-    public ResponseEntity<?> doctorUpdateWeightRecord(@PathVariable Long recordId,
-                                                      @Valid @RequestBody WeightRecordRequestDTO request) {
-        try {
-            String doctorEmail = getCurrentUserEmail();
-            WeightRecordResponseDTO record = petService.updateWeightRecordByDoctor(recordId, request, doctorEmail);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("record", record);
-            response.put("message", "✅ Weight entry updated successfully!");
-
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
-    }
+    // NOTE: Doctors can VIEW a pet's weight history (see below), but cannot
+    // add, edit, or delete weight entries. Only the pet owner is allowed to
+    // manage weight records — that capability has been intentionally removed
+    // from the doctor-facing API.
 
     // ✅ Doctor: Get weight history for a patient (oldest first, for the chart)
     @GetMapping("/doctor/pets/{petId}/weight-history")

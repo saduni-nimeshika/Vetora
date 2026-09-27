@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
+import DoctorRatings from './DoctorRatings';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -203,8 +204,11 @@ const DoctorProfilePublic = () => {
           </div>
         </div>
       </div>
+
+      <DoctorRatings doctorId={doctorId} />
     </div>
   );
 };
 
 export default DoctorProfilePublic;
+

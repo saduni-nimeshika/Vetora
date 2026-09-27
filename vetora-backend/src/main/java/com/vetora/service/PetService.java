@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -269,26 +268,6 @@ public class PetService {
         return convertToWeightRecordDTO(savedRecord);
     }
 
-    // ✅ Doctor logs a weight entry — a clinic-scale reading taken during a
-    // visit, which is clinically more reliable than an owner's home reading.
-    // Any doctor can log for any active pet, matching the access pattern
-    // already used for medical records and prescriptions in this app.
-    @Transactional
-    public WeightRecordResponseDTO addWeightRecordByDoctor(Long petId, WeightRecordRequestDTO request, String doctorEmail) {
-        User doctorUser = userRepository.findByEmail(doctorEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        Pet pet = getPetEntityById(petId);
-
-        if (!pet.getIsActive()) {
-            throw new RuntimeException("Cannot log weight for a deleted pet!");
-        }
-
-        WeightRecord savedRecord = saveWeightRecord(pet, request, WeightRecord.Source.DOCTOR, "Dr. " + doctorUser.getName());
-        logger.info("✅ Weight logged (doctor) for pet {}: {} kg", pet.getName(), savedRecord.getWeight());
-        return convertToWeightRecordDTO(savedRecord);
-    }
-
     // ✅ Shared save logic: persist the entry, then keep pet.weight in sync
     // with the latest recorded value (by date, tie-broken by insertion order)
     // so the rest of the app keeps showing the current weight automatically —
@@ -368,38 +347,6 @@ public class PetService {
         syncPetCurrentWeight(pet);
 
         logger.info("✅ Weight record {} deleted by owner {}", recordId, ownerEmail);
-    }
-
-    // ✅ Doctor corrects an existing weight entry (their own, or one the owner
-    // logged). The original source/logger is kept for history, but the edit
-    // is stamped with who corrected it and when, so nothing changes silently.
-    // Because both the owner's and the doctor's pet-profile pages read this
-    // same table fresh on every load, the correction is visible on both sides
-    // automatically — no separate sync step needed.
-    @Transactional
-    public WeightRecordResponseDTO updateWeightRecordByDoctor(Long recordId, WeightRecordRequestDTO request, String doctorEmail) {
-        User doctorUser = userRepository.findByEmail(doctorEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        WeightRecord record = weightRecordRepository.findById(recordId)
-                .orElseThrow(() -> new RuntimeException("Weight record not found"));
-
-        Pet pet = record.getPet();
-        if (!pet.getIsActive()) {
-            throw new RuntimeException("Cannot edit weight for a deleted pet!");
-        }
-
-        record.setWeight(request.getWeight());
-        record.setRecordedDate(request.getRecordedDate() != null ? request.getRecordedDate() : record.getRecordedDate());
-        record.setNotes(request.getNotes());
-        record.setEditedByName("Dr. " + doctorUser.getName());
-        record.setEditedAt(LocalDateTime.now());
-
-        WeightRecord updatedRecord = weightRecordRepository.save(record);
-        syncPetCurrentWeight(pet);
-
-        logger.info("✅ Weight record {} corrected by Dr. {}", recordId, doctorUser.getName());
-        return convertToWeightRecordDTO(updatedRecord);
     }
 
     // ✅ Recompute pet.weight from the chronologically latest weight entry
