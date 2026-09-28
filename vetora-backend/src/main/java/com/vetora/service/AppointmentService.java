@@ -4,6 +4,7 @@ import com.vetora.dto.AppointmentRequestDTO;
 import com.vetora.dto.AppointmentResponseDTO;
 import com.vetora.entity.Appointment;
 import com.vetora.entity.Doctor;
+import com.vetora.entity.Notification;
 import com.vetora.entity.Pet;
 import com.vetora.entity.Reminder;
 import com.vetora.entity.User;
@@ -12,6 +13,7 @@ import com.vetora.repository.DoctorRepository;
 import com.vetora.repository.PetRepository;
 import com.vetora.repository.ReminderRepository;
 import com.vetora.repository.UserRepository;
+import com.vetora.util.TextUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,7 @@ public class AppointmentService {
     private final EmailService emailService;
     private final ReminderRepository reminderRepository;
     private final ReminderService reminderService;   // ✅ Add this
+    private final NotificationService notificationService;
 
     // ✅ Constructor - හරියට
     public AppointmentService(AppointmentRepository appointmentRepository,
@@ -42,7 +45,8 @@ public class AppointmentService {
                               DoctorRepository doctorRepository,
                               EmailService emailService,
                               ReminderRepository reminderRepository,
-                              ReminderService reminderService) {   // ✅ Add this
+                              ReminderService reminderService,
+                              NotificationService notificationService) {
         this.appointmentRepository = appointmentRepository;
         this.petRepository = petRepository;
         this.userRepository = userRepository;
@@ -50,6 +54,93 @@ public class AppointmentService {
         this.emailService = emailService;
         this.reminderRepository = reminderRepository;
         this.reminderService = reminderService;   // ✅ Add this
+        this.notificationService = notificationService;
+    }
+
+    // ============================================================
+    // NOTIFICATION / SIDE-EFFECT HELPERS
+    // ============================================================
+
+    // Create an in-app notification without ever letting a failure here break
+    // the appointment action that triggered it.
+    private void safeNotify(User recipient, Notification.NotificationType type, String title,
+                            String message, String link, Long appointmentId) {
+        try {
+            if (recipient != null) {
+                notificationService.notifyUser(recipient.getId(), type, title, message, link, appointmentId);
+            }
+        } catch (Exception e) {
+            logger.error("❌ Failed to create in-app notification: {}", e.getMessage());
+        }
+    }
+
+    private String describe(Appointment appointment) {
+        return appointment.getPet().getName() + " on "
+                + TextUtils.whenLabel(appointment.getAppointmentDate(), appointment.getAppointmentTime());
+    }
+
+    // Doctor accepted → email + bell notification to the pet owner, and the
+    // 2-hour-before reminder is created now (only confirmed appointments get one)
+    private void handleApproved(Appointment appointment, User doctor) {
+        Pet pet = appointment.getPet();
+        User owner = pet.getOwner();
+
+        try {
+            emailService.sendAppointmentApproved(owner.getEmail(), owner.getName(),
+                    pet.getName(), doctor.getName(),
+                    appointment.getAppointmentDate(), appointment.getAppointmentTime(),
+                    appointment.getNotes());
+        } catch (Exception e) {
+            logger.error("❌ Failed to send approval email: {}", e.getMessage());
+        }
+
+        try {
+            reminderService.createAutoAppointmentReminder(pet, doctor,
+                    appointment.getAppointmentDate().atTime(appointment.getAppointmentTime()),
+                    pet.getName(), doctor.getName(), appointment.getId());
+        } catch (Exception e) {
+            logger.error("❌ Failed to create auto reminder: {}", e.getMessage());
+        }
+
+        safeNotify(owner, Notification.NotificationType.APPOINTMENT_APPROVED,
+                "Appointment accepted",
+                TextUtils.doctorLabel(doctor.getName()) + " accepted your appointment for " + describe(appointment) + ".",
+                "/owner/appointments", appointment.getId());
+    }
+
+    // Doctor rejected → email + bell notification (with the reason) to the pet owner
+    private void handleRejected(Appointment appointment, User doctor) {
+        Pet pet = appointment.getPet();
+        User owner = pet.getOwner();
+        String reason = appointment.getRejectionReason();
+
+        reminderService.deactivateAppointmentReminders(appointment.getId());
+
+        try {
+            emailService.sendAppointmentRejected(owner.getEmail(), owner.getName(),
+                    pet.getName(), doctor.getName(),
+                    appointment.getAppointmentDate(), appointment.getAppointmentTime(),
+                    reason);
+        } catch (Exception e) {
+            logger.error("❌ Failed to send rejection email: {}", e.getMessage());
+        }
+
+        boolean hasReason = reason != null && !reason.isBlank() && !"No reason provided".equals(reason);
+        safeNotify(owner, Notification.NotificationType.APPOINTMENT_REJECTED,
+                "Appointment rejected",
+                TextUtils.doctorLabel(doctor.getName()) + " could not accept your appointment for "
+                        + describe(appointment) + "." + (hasReason ? " Reason: " + reason : ""),
+                "/owner/appointments", appointment.getId());
+    }
+
+    // Doctor marked it completed → bell notification to the pet owner
+    private void handleCompleted(Appointment appointment, User doctor) {
+        reminderService.deactivateAppointmentReminders(appointment.getId());
+        safeNotify(appointment.getPet().getOwner(), Notification.NotificationType.APPOINTMENT_COMPLETED,
+                "Appointment completed",
+                "Your appointment for " + describe(appointment) + " with "
+                        + TextUtils.doctorLabel(doctor.getName()) + " is completed. You can now rate the doctor.",
+                "/owner/appointments", appointment.getId());
     }
 
     // ✅ Book Appointment (Pet Owner)
@@ -110,18 +201,13 @@ public class AppointmentService {
             logger.error("❌ Failed to send appointment emails: {}", e.getMessage());
         }
 
-        // ✅ AUTO CREATE APPOINTMENT REMINDER using ReminderService
-        try {
-            reminderService.createAutoAppointmentReminder(
-                    pet,
-                    doctor,
-                    request.getAppointmentDate().atTime(request.getAppointmentTime()),
-                    pet.getName(),
-                    doctor.getName()
-            );
-        } catch (Exception e) {
-            logger.error("❌ Failed to create auto reminder: {}", e.getMessage());
-        }
+        // 🔔 Automatic in-app notification to the doctor. (The appointment
+        // reminder is created later, once the doctor accepts.)
+        safeNotify(doctor, Notification.NotificationType.APPOINTMENT_REQUESTED,
+                "New appointment request",
+                owner.getName() + " booked an appointment for " + pet.getName() + " on "
+                        + TextUtils.whenLabel(request.getAppointmentDate(), request.getAppointmentTime()) + ".",
+                "/doctor/appointments", savedAppointment.getId());
 
         return convertToResponseDTO(savedAppointment);
     }
@@ -146,16 +232,8 @@ public class AppointmentService {
         appointment.setStatus(Appointment.AppointmentStatus.APPROVED);
         Appointment savedAppointment = appointmentRepository.save(appointment);
 
-        try {
-            User owner = appointment.getPet().getOwner();
-            emailService.sendAppointmentApproved(owner.getEmail(), owner.getName(),
-                    appointment.getPet().getName(), doctor.getName(),
-                    appointment.getAppointmentDate(), appointment.getAppointmentTime(),
-                    appointment.getNotes());
-            logger.info("✅ Appointment approved and notification sent");
-        } catch (Exception e) {
-            logger.error("❌ Failed to send approval notification: {}", e.getMessage());
-        }
+        handleApproved(savedAppointment, doctor);
+        logger.info("✅ Appointment approved");
 
         return convertToResponseDTO(savedAppointment);
     }
@@ -178,19 +256,11 @@ public class AppointmentService {
         }
 
         appointment.setStatus(Appointment.AppointmentStatus.REJECTED);
-        appointment.setRejectionReason(reason != null ? reason : "No reason provided");
+        appointment.setRejectionReason(reason != null && !reason.isBlank() ? reason : "No reason provided");
         Appointment savedAppointment = appointmentRepository.save(appointment);
 
-        try {
-            User owner = appointment.getPet().getOwner();
-            emailService.sendAppointmentRejected(owner.getEmail(), owner.getName(),
-                    appointment.getPet().getName(), doctor.getName(),
-                    appointment.getAppointmentDate(), appointment.getAppointmentTime(),
-                    appointment.getRejectionReason());
-            logger.info("✅ Appointment rejected and notification sent");
-        } catch (Exception e) {
-            logger.error("❌ Failed to send rejection notification: {}", e.getMessage());
-        }
+        handleRejected(savedAppointment, doctor);
+        logger.info("✅ Appointment rejected");
 
         return convertToResponseDTO(savedAppointment);
     }
@@ -219,16 +289,14 @@ public class AppointmentService {
         appointment.setStatus(Appointment.AppointmentStatus.CANCELLED);
         Appointment savedAppointment = appointmentRepository.save(appointment);
 
-        // ✅ DELETE AUTO REMINDER
-        try {
-            reminderService.deleteAutoReminder(
-                    appointment.getPet().getId(),
-                    Reminder.ReminderType.APPOINTMENT,
-                    appointment.getPet().getName()
-            );
-        } catch (Exception e) {
-            logger.error("❌ Failed to delete auto reminder: {}", e.getMessage());
-        }
+        // Switch off this appointment's reminder (only this one)
+        reminderService.deactivateAppointmentReminders(appointment.getId());
+
+        // 🔔 Automatic in-app notification to the doctor
+        safeNotify(appointment.getDoctor(), Notification.NotificationType.APPOINTMENT_CANCELLED,
+                "Appointment cancelled",
+                owner.getName() + " cancelled the appointment for " + describe(appointment) + ".",
+                "/doctor/appointments", appointment.getId());
 
         // ✅ Send cancellation email to doctor
         try {
@@ -331,6 +399,12 @@ public class AppointmentService {
             throw new RuntimeException("Invalid status: " + status + ". Allowed: APPROVED, REJECTED, COMPLETED");
         }
 
+        if (newStatus != Appointment.AppointmentStatus.APPROVED
+                && newStatus != Appointment.AppointmentStatus.REJECTED
+                && newStatus != Appointment.AppointmentStatus.COMPLETED) {
+            throw new RuntimeException("Invalid status: " + status + ". Allowed: APPROVED, REJECTED, COMPLETED");
+        }
+
         // Check if appointment is cancelled
         if (appointment.getStatus() == Appointment.AppointmentStatus.CANCELLED) {
             throw new RuntimeException("Cannot update a cancelled appointment!");
@@ -341,8 +415,26 @@ public class AppointmentService {
             throw new RuntimeException("Appointment is already completed!");
         }
 
+        // Same status again would only re-send the notification
+        if (appointment.getStatus() == newStatus) {
+            throw new RuntimeException("Appointment is already " + newStatus.name().toLowerCase() + "!");
+        }
+
         appointment.setStatus(newStatus);
+        if (newStatus == Appointment.AppointmentStatus.REJECTED
+                && (appointment.getRejectionReason() == null || appointment.getRejectionReason().isBlank())) {
+            appointment.setRejectionReason("No reason provided");
+        }
         Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        // 🔔 Automatic notification (+ email) to the pet owner
+        if (newStatus == Appointment.AppointmentStatus.APPROVED) {
+            handleApproved(savedAppointment, doctor);
+        } else if (newStatus == Appointment.AppointmentStatus.REJECTED) {
+            handleRejected(savedAppointment, doctor);
+        } else {
+            handleCompleted(savedAppointment, doctor);
+        }
 
         logger.info("✅ Appointment {} status updated to: {}", appointmentId, newStatus);
 
@@ -382,6 +474,11 @@ public class AppointmentService {
         );
     }
 }
+
+
+
+
+
 
 
 

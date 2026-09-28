@@ -4,7 +4,7 @@ import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import {
   FaPaw, FaArrowLeft, FaFileMedical, FaSyringe, FaPrescriptionBottle,
-  FaCalendar, FaBell, FaPlus, FaUser, FaPhone, FaEnvelope,
+  FaCalendar, FaHourglassHalf, FaPlus, FaUser, FaPhone, FaEnvelope,
   FaClipboardList, FaCheckCircle, FaClock, FaTimesCircle, FaChartLine,
 } from 'react-icons/fa';
 import { Line } from 'react-chartjs-2';
@@ -103,7 +103,7 @@ const PatientProfile = () => {
     { key: 'medical', label: 'Medical Records', icon: <FaFileMedical />, count: medicalRecords.length },
     { key: 'vaccinations', label: 'Vaccinations', icon: <FaSyringe />, count: vaccinations.length },
     { key: 'prescriptions', label: 'Prescriptions', icon: <FaPrescriptionBottle />, count: prescriptions.length },
-    { key: 'reminders', label: 'Reminders', icon: <FaBell />, count: reminders.length },
+    { key: 'reminders', label: 'Reminders', icon: <FaHourglassHalf />, count: reminders.length },
     { key: 'appointments', label: 'Appointments', icon: <FaCalendar />, count: appointments.length },
   ];
 
@@ -192,7 +192,7 @@ const PatientProfile = () => {
                 <FaPrescriptionBottle /> Add Prescription
               </Link>
               <Link to={`/doctor/reminders?petId=${pet.id}&petName=${encodeURIComponent(pet.name)}`} className="btn-secondary w-full">
-                <FaBell /> Add Reminder
+                <FaHourglassHalf /> Add Reminder
               </Link>
             </div>
           </div>
@@ -216,7 +216,7 @@ const PatientProfile = () => {
                   <div><h3 className="stat-value !text-xl">{appointments.length}</h3><p className="stat-label">Appointments</p></div>
                 </div>
                 <div className="stat-card !p-4">
-                  <span className="stat-icon bg-pink-100 text-pink-600 !w-10 !h-10"><FaBell /></span>
+                  <span className="stat-icon bg-pink-100 text-pink-600 !w-10 !h-10"><FaHourglassHalf /></span>
                   <div><h3 className="stat-value !text-xl">{reminders.filter(r => !r.isSent).length}</h3><p className="stat-label">Pending Reminders</p></div>
                 </div>
               </div>
@@ -355,7 +355,7 @@ const PatientProfile = () => {
 
           {activeTab === 'reminders' && (
             <div className="card">
-              <h3 className="section-title"><FaBell className="text-primary-600" /> Reminders</h3>
+              <h3 className="section-title"><FaHourglassHalf className="text-primary-600" /> Reminders</h3>
               {reminders.length === 0 ? (
                 <p className="text-ink-400 text-center py-8">No reminders set</p>
               ) : (
@@ -408,6 +408,8 @@ const PatientProfile = () => {
 };
 
 export default PatientProfile;
+
+
 
 
 

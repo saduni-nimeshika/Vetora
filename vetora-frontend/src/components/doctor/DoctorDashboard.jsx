@@ -13,7 +13,7 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import {
   FaCalendarCheck, FaClock, FaCheckCircle, FaUserMd,
-  FaBell, FaFileMedicalAlt, FaCalendarDay, FaPaw,
+  FaHourglassHalf, FaFileMedicalAlt, FaCalendarDay, FaPaw,
   FaChartBar, FaArrowRight,
 } from 'react-icons/fa';
 
@@ -32,7 +32,7 @@ const quickActions = [
   { to: '/doctor/appointments', icon: FaCalendarCheck, title: 'Appointments', desc: 'Manage your schedule', color: 'blue' },
   { to: '/doctor/availability', icon: FaClock, title: 'Availability', desc: 'Set your working hours', color: 'primary' },
   { to: '/doctor/medical-record', icon: FaFileMedicalAlt, title: 'Medical Records', desc: 'Add patient records', color: 'purple' },
-  { to: '/doctor/reminders', icon: FaBell, title: 'Reminders', desc: 'Create patient reminders', color: 'pink' },
+  { to: '/doctor/reminders', icon: FaHourglassHalf, title: 'Reminders', desc: 'Create patient reminders', color: 'pink' },
 ];
 
 const colorMap = {
@@ -200,7 +200,7 @@ const DoctorDashboard = () => {
           </div>
         </div>
         <Link to="/doctor/reminders" className="stat-card">
-          <span className="stat-icon bg-pink-100 text-pink-600"><FaBell /></span>
+          <span className="stat-icon bg-pink-100 text-pink-600"><FaHourglassHalf /></span>
           <div>
             <h3 className="stat-value">{stats.reminders}</h3>
             <p className="stat-label">Reminders</p>
@@ -277,7 +277,7 @@ const DoctorDashboard = () => {
         <motion.div variants={itemVariants} className="card">
           <div className="flex justify-between items-center mb-4">
             <h3 className="section-title mb-0 flex items-center gap-2">
-              <FaBell className="text-primary-600" /> Upcoming Reminders
+              <FaHourglassHalf className="text-primary-600" /> Upcoming Reminders
             </h3>
             <Link to="/doctor/reminders" className="text-sm text-primary-600 hover:underline font-medium flex items-center gap-1">
               Manage <FaArrowRight className="text-xs" />
@@ -307,5 +307,6 @@ const DoctorDashboard = () => {
 };
 
 export default DoctorDashboard;
+
 
 

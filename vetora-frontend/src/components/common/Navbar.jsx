@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import VetoraLogo from './VetoraLogo';
+import NotificationBell from './NotificationBell';
 import {
   FaPaw, FaUser, FaSignOutAlt, FaBars, FaTimes, FaChevronDown,
   FaHome, FaCalendarAlt, FaClock, FaUserMd, FaUsers, FaClipboardList,
-  FaUserClock, FaSearch, FaBell, FaInfoCircle, FaConciergeBell, FaPhoneAlt,
+  FaUserClock, FaSearch, FaHourglassHalf, FaInfoCircle, FaConciergeBell, FaPhoneAlt,
 } from 'react-icons/fa';
 
 // Public (guest) top-bar links — jump to sections on the Home page
@@ -27,7 +28,7 @@ const roleNavLinks = {
     { name: 'Dashboard', path: '/doctor/dashboard', icon: <FaHome /> },
     { name: 'Appointments', path: '/doctor/appointments', icon: <FaCalendarAlt /> },
     { name: 'Availability', path: '/doctor/availability', icon: <FaClock /> },
-    { name: 'Reminders', path: '/doctor/reminders', icon: <FaBell /> },
+    { name: 'Reminders', path: '/doctor/reminders', icon: <FaHourglassHalf /> },
     { name: 'My Profile', path: '/doctor/profile', icon: <FaUserMd /> },
   ],
   PET_OWNER: [
@@ -130,7 +131,9 @@ const Navbar = () => {
             </div>
           )}
 
-          {/* Right side */}
+          {/* Right side: bell (all screen sizes) + profile menu (desktop) / hamburger (mobile) */}
+          <div className="flex items-center gap-2 md:gap-3">
+          {isAuthenticated && <NotificationBell />}
           <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
               <div className="relative" ref={menuRef}>
@@ -190,6 +193,7 @@ const Navbar = () => {
           >
             {mobileOpen ? <FaTimes className="text-xl" /> : <FaBars className="text-xl" />}
           </button>
+          </div>
         </div>
       </div>
 
@@ -261,4 +265,10 @@ const Navbar = () => {
 };
 
 export default Navbar;
+
+
+
+
+
+
 

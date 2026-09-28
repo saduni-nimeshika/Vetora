@@ -21,6 +21,9 @@ public interface ReminderRepository extends JpaRepository<Reminder, Long> {
     // Find reminders that need to be sent (not sent, active, time <= now)
     List<Reminder> findByIsSentFalseAndIsActiveTrueAndReminderDateTimeBeforeOrderByReminderDateTimeAsc(LocalDateTime now);
 
+    // Active reminders that belong to one appointment
+    List<Reminder> findByAppointmentIdAndIsActiveTrue(Long appointmentId);
+
     // Find reminders for a pet by type
     List<Reminder> findByPetIdAndTypeAndIsActiveTrue(Long petId, Reminder.ReminderType type);
 

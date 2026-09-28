@@ -14,6 +14,7 @@ import {
   FaCheckCircle, FaCamera, FaSave, FaTimes, FaCrosshairs
 } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+import DoctorMyReviews from '../components/doctor/DoctorMyReviews';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -511,9 +512,14 @@ const DoctorProfileView = () => {
           </AnimatePresence>
         </div>
       </motion.div>
+
+      {/* Reviews from pet owners, with reply option */}
+      {!editing && <DoctorMyReviews />}
     </motion.div>
   );
 };
 
 export default DoctorProfileView;
+
+
 

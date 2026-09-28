@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import {
-  FaBell, FaPlus, FaTrash, FaSyringe, FaPills, FaCalendarCheck,
+  FaHourglassHalf, FaPlus, FaTrash, FaSyringe, FaPills, FaCalendarCheck,
   FaClock, FaCheckCircle, FaTimes, FaPaw, FaArrowLeft,
 } from 'react-icons/fa';
 
@@ -107,7 +107,7 @@ const RemindersManager = () => {
       <div className="page-header">
         <div>
           <h1 className="page-title">
-            <FaBell className="text-primary-600" /> Reminders
+            <FaHourglassHalf className="text-primary-600" /> Reminders
           </h1>
           <p className="page-subtitle">Create and manage reminders for your patients</p>
         </div>
@@ -235,7 +235,7 @@ const RemindersManager = () => {
         </div>
       ) : reminders.length === 0 ? (
         <div className="empty-state">
-          <FaBell className="text-4xl text-ink-300 mb-3" />
+          <FaHourglassHalf className="text-4xl text-ink-300 mb-3" />
           <p className="text-ink-500 font-medium">No reminders yet</p>
           <p className="text-ink-400 text-sm mt-1">Create your first reminder for a patient above</p>
         </div>
@@ -280,4 +280,6 @@ const RemindersManager = () => {
 };
 
 export default RemindersManager;
+
+
 

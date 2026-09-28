@@ -8,9 +8,11 @@ public class RatingResponseDTO {
     private String ownerName;
     private Integer rating;
     private String comment;
+    private String doctorReply;             // null until the doctor replies
+    private LocalDateTime doctorRepliedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private boolean mine; // true if this rating belongs to the requesting owner
+    private boolean mine; // true if this review belongs to the requesting owner
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -23,6 +25,12 @@ public class RatingResponseDTO {
 
     public String getComment() { return comment; }
     public void setComment(String comment) { this.comment = comment; }
+
+    public String getDoctorReply() { return doctorReply; }
+    public void setDoctorReply(String doctorReply) { this.doctorReply = doctorReply; }
+
+    public LocalDateTime getDoctorRepliedAt() { return doctorRepliedAt; }
+    public void setDoctorRepliedAt(LocalDateTime doctorRepliedAt) { this.doctorRepliedAt = doctorRepliedAt; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

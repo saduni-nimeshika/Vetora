@@ -6,7 +6,7 @@ import {
   FaPaw, FaCalendar, FaFileMedical, FaSyringe, FaPrescription,
   FaWeight, FaVenusMars, FaBirthdayCake, FaStethoscope, FaClipboardList,
   FaChartLine, FaUserMd, FaClock, FaCheckCircle, FaTimesCircle,
-  FaArrowLeft, FaEdit, FaPhone, FaEnvelope, FaMapMarkerAlt, FaBell, FaPencilAlt, FaLock, FaTrash, FaPlus
+  FaArrowLeft, FaEdit, FaPhone, FaEnvelope, FaMapMarkerAlt, FaHourglassHalf, FaPencilAlt, FaLock, FaTrash, FaPlus
 } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import { Line } from 'react-chartjs-2';
@@ -246,7 +246,7 @@ const PetProfile = () => {
     { key: 'prescriptions', label: 'Prescriptions', icon: <FaPrescription />, count: prescriptions.length },
     { key: 'appointments', label: 'Appointments', icon: <FaCalendar />, count: appointments.length },
     {
-      key: 'reminders', label: 'Reminders', icon: <FaBell />,
+      key: 'reminders', label: 'Reminders', icon: <FaHourglassHalf />,
       count: reminders.filter(r => !r.isSent).length,
     },
   ];
@@ -568,7 +568,7 @@ const PetProfile = () => {
           {/* Reminders Tab */}
           {activeTab === 'reminders' && (
             <div className="card">
-              <h3 className="section-title"><FaBell className="text-primary-600" /> Reminders</h3>
+              <h3 className="section-title"><FaHourglassHalf className="text-primary-600" /> Reminders</h3>
               {reminders.length === 0 ? (
                 <p className="text-ink-400 text-center py-8">No reminders set for this pet</p>
               ) : (
@@ -657,3 +657,4 @@ const PetProfile = () => {
 };
 
 export default PetProfile;
+

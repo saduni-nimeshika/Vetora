@@ -35,6 +35,11 @@ public class Reminder {
     @Column(columnDefinition = "TEXT")
     private String message;
 
+    // Set for automatic appointment reminders, so the exact reminder can be
+    // switched off when that appointment is rejected or cancelled
+    @Column(name = "appointment_id")
+    private Long appointmentId;
+
     @Column(name = "is_sent", nullable = false)
     private Boolean isSent = false;
 
@@ -90,6 +95,9 @@ public class Reminder {
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
 
+    public Long getAppointmentId() { return appointmentId; }
+    public void setAppointmentId(Long appointmentId) { this.appointmentId = appointmentId; }
+
     public Boolean getIsSent() { return isSent; }
     public void setIsSent(Boolean isSent) { this.isSent = isSent != null ? isSent : false; }
 
@@ -108,4 +116,6 @@ public class Reminder {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
+
+
 

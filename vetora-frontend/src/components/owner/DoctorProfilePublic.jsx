@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
-import DoctorRatings from './DoctorRatings';
+import { useAuth } from '../../context/AuthContext';
+import DoctorReviews from './DoctorReviews';
+import { StarDisplay } from './StarRating';
+import { formatDoctorName } from '../../utils/doctorName';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -21,6 +24,8 @@ L.Icon.Default.mergeOptions({
 
 const DoctorProfilePublic = () => {
   const { doctorId } = useParams();
+  const { user } = useAuth();
+  const [ratingSummary, setRatingSummary] = useState(null);
   const [doctor, setDoctor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
@@ -38,6 +43,25 @@ const DoctorProfilePublic = () => {
     fetchDoctor();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doctorId, userLocation]);
+
+  const fetchRatings = async () => {
+    try {
+      const res = await api.get(`/api/v1/doctors/${doctorId}/ratings`);
+      setRatingSummary(res.data);
+    } catch (error) {
+      // Ratings are secondary; the profile still works without them
+    }
+  };
+
+  useEffect(() => {
+    fetchRatings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doctorId]);
+
+  const scrollToReviews = () => {
+    document.getElementById('reviews-section')?.scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => document.getElementById('review-comment')?.focus({ preventScroll: true }), 400);
+  };
 
   const fetchDoctor = async () => {
     try {
@@ -73,7 +97,7 @@ const DoctorProfilePublic = () => {
     );
   }
 
-  const bookingUrl = `/owner/appointments/book?doctorId=${doctor.user?.id}&doctorName=${encodeURIComponent('Dr. ' + (doctor.user?.name || ''))}`;
+  const bookingUrl = `/owner/appointments/book?doctorId=${doctor.user?.id}&doctorName=${encodeURIComponent(formatDoctorName(doctor.user?.name))}`;
 
   return (
     <div className="max-w-4xl mx-auto animate-slideUp">
@@ -96,20 +120,42 @@ const DoctorProfilePublic = () => {
                 )}
               </div>
             </div>
-            {doctor.distanceKm != null && (
-              <span className="badge-info mt-3">
-                <FaRuler className="text-[10px]" /> {doctor.distanceKm} km away
-                {doctor.locationApproximate && <span className="text-[10px] opacity-70">(approx.)</span>}
-              </span>
-            )}
+            <div className="flex flex-col items-end gap-1.5 mt-3">
+              {user?.role === 'PET_OWNER' && (
+                <button type="button" onClick={scrollToReviews} className="btn-secondary !py-2 !px-4 text-sm">
+                  Rate Doctor
+                </button>
+              )}
+              {doctor.distanceKm != null && (
+                <span className="badge-info">
+                  <FaRuler className="text-[10px]" /> {doctor.distanceKm} km away
+                  {doctor.locationApproximate && <span className="text-[10px] opacity-70">(approx.)</span>}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="mt-4">
             <h1 className="text-2xl font-bold text-ink-900 font-display flex items-center gap-2">
-              Dr. {doctor.user?.name}
+              {formatDoctorName(doctor.user?.name)}
               <FaCheckCircle className="text-primary-500 text-lg" title="Verified" />
             </h1>
             <p className="text-primary-600 font-medium">{doctor.specialisation || 'General Practitioner'}</p>
+            {ratingSummary && (
+              <div className="flex items-center gap-2 mt-1.5">
+                {ratingSummary.totalRatings > 0 ? (
+                  <>
+                    <StarDisplay value={ratingSummary.averageRating} size="text-lg" />
+                    <span className="text-sm font-semibold text-ink-700">{ratingSummary.averageRating.toFixed(1)}</span>
+                    <span className="text-sm text-ink-400">
+                      ({ratingSummary.totalRatings} {ratingSummary.totalRatings === 1 ? 'Review' : 'Reviews'})
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-sm text-ink-400">No reviews yet</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="mt-6 grid sm:grid-cols-2 gap-6">
@@ -151,6 +197,8 @@ const DoctorProfilePublic = () => {
             </div>
           </div>
 
+          <DoctorReviews doctorId={doctorId} doctorName={formatDoctorName(doctor.user?.name)} summary={ratingSummary} onChanged={fetchRatings} />
+
           {doctor.clinicAddress && (
             <div className="mt-4 flex items-start gap-2 text-sm text-ink-500 bg-ink-50 rounded-xl p-3">
               <FaMapMarkerAlt className="text-primary-500 mt-0.5 shrink-0" />
@@ -175,7 +223,7 @@ const DoctorProfilePublic = () => {
                     attribution='&copy; OpenStreetMap'
                   />
                   <Marker position={[doctor.latitude, doctor.longitude]}>
-                    <Popup>{doctor.clinicName || `Dr. ${doctor.user?.name}`}</Popup>
+                    <Popup>{doctor.clinicName || formatDoctorName(doctor.user?.name)}</Popup>
                   </Marker>
                 </MapContainer>
               </div>
@@ -204,11 +252,12 @@ const DoctorProfilePublic = () => {
           </div>
         </div>
       </div>
-
-      <DoctorRatings doctorId={doctorId} />
     </div>
   );
 };
 
 export default DoctorProfilePublic;
+
+
+
 

@@ -6,11 +6,11 @@ public class RatingSummaryDTO {
 
     private double averageRating;
     private long totalRatings;
-    // Null when the caller isn't a pet owner, or hasn't rated this doctor yet
-    private RatingResponseDTO myRating;
     // True when the requesting owner has a completed appointment with this
-    // doctor and can therefore submit a rating
+    // doctor and can therefore post a review
     private boolean eligibleToRate;
+    // How many more reviews the requesting owner may post for this doctor
+    private int reviewsLeft;
     private List<RatingResponseDTO> ratings;
 
     public double getAverageRating() { return averageRating; }
@@ -19,12 +19,14 @@ public class RatingSummaryDTO {
     public long getTotalRatings() { return totalRatings; }
     public void setTotalRatings(long totalRatings) { this.totalRatings = totalRatings; }
 
-    public RatingResponseDTO getMyRating() { return myRating; }
-    public void setMyRating(RatingResponseDTO myRating) { this.myRating = myRating; }
-
     public boolean isEligibleToRate() { return eligibleToRate; }
     public void setEligibleToRate(boolean eligibleToRate) { this.eligibleToRate = eligibleToRate; }
+
+    public int getReviewsLeft() { return reviewsLeft; }
+    public void setReviewsLeft(int reviewsLeft) { this.reviewsLeft = reviewsLeft; }
 
     public List<RatingResponseDTO> getRatings() { return ratings; }
     public void setRatings(List<RatingResponseDTO> ratings) { this.ratings = ratings; }
 }
+
+

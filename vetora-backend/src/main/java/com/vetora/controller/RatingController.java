@@ -1,5 +1,6 @@
 package com.vetora.controller;
 
+import com.vetora.dto.RatingReplyRequestDTO;
 import com.vetora.dto.RatingRequestDTO;
 import com.vetora.dto.RatingResponseDTO;
 import com.vetora.dto.RatingSummaryDTO;
@@ -29,22 +30,31 @@ public class RatingController {
         return (auth != null && auth.isAuthenticated()) ? auth.getName() : null;
     }
 
-    // ✅ Any authenticated user can view a doctor's ratings + average (shown
-    // on the doctor's public profile page). If the caller is the pet owner
-    // themselves, their own rating and rate-eligibility are included too.
+    private ResponseEntity<Map<String, String>> error(HttpStatus status, String message) {
+        Map<String, String> body = new HashMap<>();
+        body.put("error", message);
+        return ResponseEntity.status(status).body(body);
+    }
+
+    private ResponseEntity<Map<String, String>> message(String text) {
+        Map<String, String> body = new HashMap<>();
+        body.put("message", text);
+        return ResponseEntity.ok(body);
+    }
+
+    // ✅ Any logged-in user (including a newly registered owner) can view a
+    // doctor's reviews + average on the doctor's profile page.
     @GetMapping("/doctors/{doctorId}/ratings")
     public ResponseEntity<?> getRatings(@PathVariable Long doctorId) {
         try {
             RatingSummaryDTO summary = ratingService.getSummary(doctorId, getCurrentUserEmail());
             return ResponseEntity.ok(summary);
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            return error(HttpStatus.NOT_FOUND, e.getMessage());
         }
     }
 
-    // ✅ Pet owner: submit a rating, or update their existing one for this doctor
+    // ✅ Pet owner: post a review (can post more than one over time)
     @PostMapping("/owner/doctors/{doctorId}/ratings")
     public ResponseEntity<?> submitRating(@PathVariable Long doctorId, @Valid @RequestBody RatingRequestDTO request) {
         try {
@@ -54,24 +64,51 @@ public class RatingController {
             response.put("message", "✅ Thanks for your feedback!");
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+            return error(HttpStatus.BAD_REQUEST, e.getMessage());
         }
     }
 
-    // ✅ Pet owner: remove their own rating for a doctor
-    @DeleteMapping("/owner/doctors/{doctorId}/ratings")
-    public ResponseEntity<?> deleteRating(@PathVariable Long doctorId) {
+    // ✅ Pet owner: delete one of their own reviews
+    @DeleteMapping("/owner/doctors/ratings/{ratingId}")
+    public ResponseEntity<?> deleteRating(@PathVariable Long ratingId) {
         try {
-            ratingService.deleteMyRating(doctorId, getCurrentUserEmail());
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "✅ Rating removed");
-            return ResponseEntity.ok(response);
+            ratingService.deleteMyRating(ratingId, getCurrentUserEmail());
+            return message("✅ Review removed");
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+            return error(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    // ✅ Doctor: the reviews written about the logged-in doctor
+    @GetMapping("/doctor/ratings")
+    public ResponseEntity<?> getMyRatings() {
+        try {
+            RatingSummaryDTO summary = ratingService.getSummaryForLoggedInDoctor(getCurrentUserEmail());
+            return ResponseEntity.ok(summary);
+        } catch (RuntimeException e) {
+            return error(HttpStatus.NOT_FOUND, e.getMessage());
+        }
+    }
+
+    // ✅ Doctor: reply to a review (posting again edits the reply)
+    @PostMapping("/doctor/ratings/{ratingId}/reply")
+    public ResponseEntity<?> replyToRating(@PathVariable Long ratingId, @Valid @RequestBody RatingReplyRequestDTO request) {
+        try {
+            RatingResponseDTO dto = ratingService.replyToRating(ratingId, getCurrentUserEmail(), request.getReply());
+            return ResponseEntity.ok(dto);
+        } catch (RuntimeException e) {
+            return error(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    // ✅ Doctor: remove their reply
+    @DeleteMapping("/doctor/ratings/{ratingId}/reply")
+    public ResponseEntity<?> deleteReply(@PathVariable Long ratingId) {
+        try {
+            ratingService.deleteReply(ratingId, getCurrentUserEmail());
+            return message("✅ Reply removed");
+        } catch (RuntimeException e) {
+            return error(HttpStatus.BAD_REQUEST, e.getMessage());
         }
     }
 }

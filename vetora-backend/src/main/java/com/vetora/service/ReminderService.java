@@ -2,12 +2,14 @@ package com.vetora.service;
 
 import com.vetora.dto.ReminderRequestDTO;
 import com.vetora.dto.ReminderResponseDTO;
+import com.vetora.entity.Notification;
 import com.vetora.entity.Pet;
 import com.vetora.entity.Reminder;
 import com.vetora.entity.User;
 import com.vetora.repository.PetRepository;
 import com.vetora.repository.ReminderRepository;
 import com.vetora.repository.UserRepository;
+import com.vetora.util.TextUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,15 +28,22 @@ public class ReminderService {
     private final PetRepository petRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final NotificationService notificationService;
+
+    // A reminder that is already this many hours overdue is skipped instead of
+    // being sent late (e.g. after the server was switched off for a while).
+    private static final long STALE_AFTER_HOURS = 24;
 
     public ReminderService(ReminderRepository reminderRepository,
                            PetRepository petRepository,
                            UserRepository userRepository,
-                           EmailService emailService) {
+                           EmailService emailService,
+                           NotificationService notificationService) {
         this.reminderRepository = reminderRepository;
         this.petRepository = petRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
+        this.notificationService = notificationService;
     }
 
     // ============================================================
@@ -96,15 +105,20 @@ public class ReminderService {
 
     @Transactional
     public void createAutoAppointmentReminder(Pet pet, User doctor, LocalDateTime appointmentDateTime,
-                                              String petName, String doctorName) {
+                                              String petName, String doctorName, Long appointmentId) {
         try {
+            // Nothing to remind about if the appointment time has already passed
+            if (!appointmentDateTime.isAfter(LocalDateTime.now())) {
+                return;
+            }
             Reminder reminder = new Reminder();
             reminder.setPet(pet);
             reminder.setDoctor(doctor);
+            reminder.setAppointmentId(appointmentId);
             reminder.setType(Reminder.ReminderType.APPOINTMENT);
             reminder.setReminderDateTime(appointmentDateTime.minusHours(2));
             reminder.setMessage("⏰ Reminder: Appointment for " + petName +
-                    " with Dr. " + doctorName + " at " + appointmentDateTime.toLocalTime() +
+                    " with " + TextUtils.doctorLabel(doctorName) + " at " + appointmentDateTime.toLocalTime() +
                     " on " + appointmentDateTime.toLocalDate());
             reminder.setIsSent(false);
             reminder.setIsActive(true);
@@ -137,20 +151,20 @@ public class ReminderService {
         }
     }
 
+    // Switch off the reminder(s) of ONE appointment (used when it is rejected or
+    // cancelled). Matches by appointment id, so other appointments of the same
+    // pet keep their reminders.
     @Transactional
-    public void deleteAutoReminder(Long petId, Reminder.ReminderType type, String petName) {
+    public void deactivateAppointmentReminders(Long appointmentId) {
         try {
-            List<Reminder> reminders = reminderRepository.findByPetIdAndTypeAndIsActiveTrue(petId, type);
+            List<Reminder> reminders = reminderRepository.findByAppointmentIdAndIsActiveTrue(appointmentId);
             for (Reminder reminder : reminders) {
-                if (reminder.getMessage().contains(petName) ||
-                        reminder.getMessage().contains("appointment for " + petName)) {
-                    reminder.setIsActive(false);
-                    reminderRepository.save(reminder);
-                    logger.info("✅ Auto reminder deleted for: {}", petName);
-                }
+                reminder.setIsActive(false);
+                reminderRepository.save(reminder);
             }
+            logger.info("✅ {} reminder(s) switched off for appointment {}", reminders.size(), appointmentId);
         } catch (Exception e) {
-            logger.error("❌ Failed to delete auto reminder: {}", e.getMessage());
+            logger.error("❌ Failed to switch off reminders for appointment {}: {}", appointmentId, e.getMessage());
         }
     }
 
@@ -179,6 +193,21 @@ public class ReminderService {
         return getRemindersByPet(petId);
     }
 
+    // Upcoming reminders for a pet — only if the pet belongs to the caller
+    public List<ReminderResponseDTO> getUpcomingRemindersForOwner(Long petId, String ownerEmail) {
+        User owner = userRepository.findByEmail(ownerEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Pet pet = petRepository.findById(petId)
+                .orElseThrow(() -> new RuntimeException("Pet not found"));
+
+        if (!pet.getOwner().getId().equals(owner.getId())) {
+            throw new RuntimeException("You don't have access to this pet's reminders!");
+        }
+
+        return getUpcomingReminders(petId);
+    }
+
     public List<ReminderResponseDTO> getMyReminders(String doctorEmail) {
         User doctor = userRepository.findByEmail(doctorEmail)
                 .orElseThrow(() -> new RuntimeException("Doctor not found"));
@@ -201,7 +230,7 @@ public class ReminderService {
     // SCHEDULED REMINDER SENDING
     // ============================================================
 
-    @Scheduled(fixedDelay = 60000) // Runs every minute
+    @Scheduled(fixedDelay = 60000) // Runs every minute (needs @EnableScheduling on the app class)
     @Transactional
     public void sendPendingReminders() {
         LocalDateTime now = LocalDateTime.now();
@@ -209,49 +238,87 @@ public class ReminderService {
 
         for (Reminder reminder : reminders) {
             try {
-                User owner = reminder.getPet().getOwner();
-                String petName = reminder.getPet().getName();
-                String doctorName = reminder.getDoctor().getName();
-                String type = reminder.getType().toString();
-
-                String subject = "⏰ VETORA - " + type + " Reminder for " + petName;
-                String messageText = "Dear " + owner.getName() + ",\n\n" +
-                        "⏰ This is a reminder regarding your pet " + petName + ".\n\n" +
-                        "📋 Reminder Details:\n" +
-                        "📌 Type: " + type + "\n" +
-                        "📅 Date/Time: " + reminder.getReminderDateTime() + "\n" +
-                        "👨‍⚕️ Doctor: Dr. " + doctorName + "\n" +
-                        "📝 Message: " + reminder.getMessage() + "\n\n" +
-                        "Please take necessary action.\n\n" +
-                        "Best Regards,\n" +
-                        "VETORA Team";
-
-                emailService.sendReminderEmail(owner.getEmail(), subject, messageText);
+                boolean stale = reminder.getReminderDateTime().isBefore(now.minusHours(STALE_AFTER_HOURS));
+                if (stale) {
+                    logger.info("⏭️ Skipping stale reminder {} (was due {})", reminder.getId(), reminder.getReminderDateTime());
+                } else {
+                    deliverReminder(reminder);
+                }
 
                 reminder.setIsSent(true);
                 reminderRepository.save(reminder);
-
-                // Handle recurring reminders
-                if (reminder.getIsRecurring() && reminder.getRecurrenceInterval() != null) {
-                    Reminder newReminder = new Reminder();
-                    newReminder.setPet(reminder.getPet());
-                    newReminder.setDoctor(reminder.getDoctor());
-                    newReminder.setType(reminder.getType());
-                    newReminder.setReminderDateTime(reminder.getReminderDateTime().plusDays(reminder.getRecurrenceInterval()));
-                    newReminder.setMessage(reminder.getMessage());
-                    newReminder.setIsRecurring(true);
-                    newReminder.setRecurrenceInterval(reminder.getRecurrenceInterval());
-                    newReminder.setIsSent(false);
-                    newReminder.setIsActive(true);
-                    reminderRepository.save(newReminder);
-                }
-
-                logger.info("✅ Reminder sent for pet: {}", petName);
+                scheduleNextOccurrence(reminder, now);
 
             } catch (Exception e) {
-                logger.error("❌ Failed to send reminder: {}", e.getMessage());
+                logger.error("❌ Failed to process reminder {}: {}", reminder.getId(), e.getMessage());
             }
         }
+    }
+
+    // Tell the pet owner: an in-app notification (bell icon) plus an email.
+    // Each channel is tried on its own so one failing never blocks the other.
+    private void deliverReminder(Reminder reminder) {
+        User owner = reminder.getPet().getOwner();
+        String petName = reminder.getPet().getName();
+        String doctorName = reminder.getDoctor().getName();
+        String type = reminder.getType().toString();
+
+        // 1) In-app notification
+        try {
+            String niceType = type.substring(0, 1) + type.substring(1).toLowerCase();
+            String link = reminder.getType() == Reminder.ReminderType.APPOINTMENT
+                    ? "/owner/appointments"
+                    : "/owner/pets/" + reminder.getPet().getId() + "?tab=reminders";
+            notificationService.notifyUser(owner.getId(), Notification.NotificationType.REMINDER,
+                    niceType + " reminder", reminder.getMessage(), link, reminder.getAppointmentId());
+        } catch (Exception e) {
+            logger.error("❌ In-app reminder notification failed: {}", e.getMessage());
+        }
+
+        // 2) Email
+        try {
+            String subject = "⏰ VETORA - " + type + " Reminder for " + petName;
+            String messageText = "Dear " + owner.getName() + ",\n\n" +
+                    "⏰ This is a reminder regarding your pet " + petName + ".\n\n" +
+                    "📋 Reminder Details:\n" +
+                    "📌 Type: " + type + "\n" +
+                    "📅 Date/Time: " + reminder.getReminderDateTime() + "\n" +
+                    "👨‍⚕️ Doctor: " + TextUtils.doctorLabel(doctorName) + "\n" +
+                    "📝 Message: " + reminder.getMessage() + "\n\n" +
+                    "Please take necessary action.\n\n" +
+                    "Best Regards,\n" +
+                    "VETORA Team";
+            emailService.sendReminderEmail(owner.getEmail(), subject, messageText);
+        } catch (Exception e) {
+            logger.error("❌ Reminder email failed: {}", e.getMessage());
+        }
+
+        logger.info("✅ Reminder delivered for pet: {}", petName);
+    }
+
+    // Recurring reminders: queue the next one, always in the future (so a long
+    // gap in server uptime can't cause a burst of catch-up reminders).
+    private void scheduleNextOccurrence(Reminder reminder, LocalDateTime now) {
+        Integer interval = reminder.getRecurrenceInterval();
+        if (!Boolean.TRUE.equals(reminder.getIsRecurring()) || interval == null || interval <= 0) {
+            return;
+        }
+        LocalDateTime next = reminder.getReminderDateTime();
+        do {
+            next = next.plusDays(interval);
+        } while (!next.isAfter(now));
+
+        Reminder newReminder = new Reminder();
+        newReminder.setPet(reminder.getPet());
+        newReminder.setDoctor(reminder.getDoctor());
+        newReminder.setType(reminder.getType());
+        newReminder.setReminderDateTime(next);
+        newReminder.setMessage(reminder.getMessage());
+        newReminder.setIsRecurring(true);
+        newReminder.setRecurrenceInterval(interval);
+        newReminder.setIsSent(false);
+        newReminder.setIsActive(true);
+        reminderRepository.save(newReminder);
     }
 
     // ============================================================
@@ -301,3 +368,6 @@ public class ReminderService {
         );
     }
 }
+
+
+

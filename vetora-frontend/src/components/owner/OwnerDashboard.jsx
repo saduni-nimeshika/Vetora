@@ -13,7 +13,7 @@ import {
   Legend,
 } from 'chart.js';
 import {
-  FaPaw, FaCalendarCheck, FaBell, FaFileMedicalAlt, FaSyringe,
+  FaPaw, FaCalendarCheck, FaHourglassHalf, FaFileMedicalAlt, FaSyringe,
   FaPlus, FaSearch, FaArrowRight, FaWeight, FaBirthdayCake,
   FaVenusMars, FaIdBadge, FaUserMd, FaCheckCircle, FaClock,
   FaChartBar, FaEdit,
@@ -206,13 +206,16 @@ const OwnerDashboard = () => {
             <p className="stat-label">Appointments</p>
           </div>
         </Link>
-        <div className="stat-card col-span-2 md:col-span-1">
-          <span className="stat-icon bg-accent-100 text-accent-600"><FaBell /></span>
+        <Link
+          to={`/owner/pets/${activePetId || pets[0]?.id || ''}?tab=reminders`}
+          className="stat-card col-span-2 md:col-span-1"
+        >
+          <span className="stat-icon bg-accent-100 text-accent-600"><FaHourglassHalf /></span>
           <div>
             <p className="stat-value">{remindersTotal}</p>
             <p className="stat-label">Upcoming Reminders</p>
           </div>
-        </div>
+        </Link>
       </motion.div>
 
       {pets.length === 0 ? (
@@ -452,13 +455,17 @@ const OwnerDashboard = () => {
                   <p className="text-xs font-semibold text-ink-400 uppercase tracking-wide mb-2">Upcoming Reminders</p>
                   <div className="space-y-2">
                     {petReminders.slice(0, 3).map((r) => (
-                      <div key={r.id} className="flex items-center gap-2 text-sm text-ink-600">
-                        <FaBell className="text-accent-500 text-xs shrink-0" />
+                      <Link
+                        key={r.id}
+                        to={`/owner/pets/${activePetId}?tab=reminders`}
+                        className="flex items-center gap-2 text-sm text-ink-600 hover:text-primary-700 rounded-lg px-1 py-1 -mx-1 hover:bg-ink-50 transition-colors"
+                      >
+                        <FaHourglassHalf className="text-accent-500 text-xs shrink-0" />
                         <span className="truncate">{r.message}</span>
                         <span className="ml-auto text-xs text-ink-400 shrink-0">
                           {new Date(r.reminderDateTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </span>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>
@@ -472,3 +479,5 @@ const OwnerDashboard = () => {
 };
 
 export default OwnerDashboard;
+
+

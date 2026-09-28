@@ -9,6 +9,8 @@ import { FaSearch, FaMapMarkerAlt, FaStethoscope, FaDirections, FaUserMd, FaRule
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { districts as slDistricts } from '../utils/sriLankaData';
+import { formatDoctorName } from '../utils/doctorName';
+import { RatingLine } from '../components/owner/StarRating';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -239,16 +241,31 @@ const DoctorSearch = () => {
                     icon={doctorIcon}
                     eventHandlers={{ click: () => setSelectedDoctor(doctor) }}
                   >
-                    <Popup>
-                      <div className="p-1 max-w-[200px]">
-                        <h4 className="font-semibold text-ink-800 text-sm">Dr. {doctor.user?.name}</h4>
-                        <p className="text-xs text-ink-500">{doctor.specialisation}</p>
-                        {doctor.distanceKm != null && (
-                          <p className="text-xs text-primary-600">📍 {doctor.distanceKm} km away</p>
-                        )}
+                    <Popup minWidth={250}>
+                      <div className="p-1">
+                        <div className="flex items-start gap-3">
+                          <div className="w-14 h-14 rounded-full overflow-hidden bg-primary-50 text-primary-600 text-xl shrink-0 flex items-center justify-center">
+                            {doctor.profileImage && doctor.profileImage !== 'default-avatar.png' ? (
+                              <img src={doctor.profileImage} alt={doctor.user?.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <FaUserMd />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-semibold text-ink-800 text-sm !my-0">{formatDoctorName(doctor.user?.name)}</h4>
+                            <p className="text-xs text-ink-500 !my-0.5">{doctor.specialisation || 'General Practitioner'}</p>
+                            {doctor.clinicName && <p className="text-xs text-ink-400 !my-0.5">{doctor.clinicName}</p>}
+                            <div className="mt-1">
+                              <RatingLine average={doctor.averageRating} count={doctor.totalRatings} size="text-xs" />
+                            </div>
+                            {doctor.distanceKm != null && (
+                              <p className="text-xs text-primary-600 !mt-1 !mb-0">📍 {doctor.distanceKm} km away</p>
+                            )}
+                          </div>
+                        </div>
                         <Link
                           to={`/owner/doctors/${doctor.id}`}
-                          className="mt-2 block w-full text-center text-xs bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 transition"
+                          className="mt-3 block w-full text-center text-xs bg-primary-600 !text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 transition"
                         >
                           View Profile
                         </Link>
@@ -315,7 +332,7 @@ const DoctorSearch = () => {
                             )}
                           </span>
                           <div className="min-w-0">
-                            <h3 className="font-semibold text-ink-800 truncate">Dr. {doctor.user?.name}</h3>
+                            <h3 className="font-semibold text-ink-800 truncate">{formatDoctorName(doctor.user?.name)}</h3>
                             <p className="text-sm text-ink-500 truncate">{doctor.specialisation || 'General Practitioner'}</p>
                             <p className="text-xs text-ink-400 truncate">{doctor.clinicName || `${doctor.city || ''}${doctor.city && doctor.district ? ', ' : ''}${doctor.district || ''}`}</p>
                           </div>
@@ -326,7 +343,10 @@ const DoctorSearch = () => {
                           </span>
                         )}
                       </div>
-                      <div className="mt-2.5 flex gap-3 pl-[52px]">
+                      <div className="mt-2 pl-[52px]">
+                        <RatingLine average={doctor.averageRating} count={doctor.totalRatings} size="text-xs" />
+                      </div>
+                      <div className="mt-2 flex gap-3 pl-[52px]">
                         <Link
                           to={`/owner/doctors/${doctor.id}`}
                           onClick={(e) => e.stopPropagation()}
@@ -358,6 +378,11 @@ const DoctorSearch = () => {
 };
 
 export default DoctorSearch;
+
+
+
+
+
 
 
 

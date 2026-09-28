@@ -4,7 +4,7 @@ import { motion, useInView } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   FaPaw, FaArrowRight, FaStar, FaHeart, FaUserMd, FaLock, FaClock,
-  FaDog, FaBell, FaFileMedicalAlt, FaCalendarCheck, FaSyringe,
+  FaDog, FaHourglassHalf, FaFileMedicalAlt, FaCalendarCheck, FaSyringe,
   FaCheckCircle, FaPhoneAlt, FaPrescriptionBottleAlt, FaSearch, FaQuoteLeft,
   FaMapMarkerAlt, FaEnvelope, FaPaperPlane, FaFacebookF, FaTwitter,
   FaInstagram, FaLinkedinIn, FaChevronDown,
@@ -87,7 +87,7 @@ const mainServices = [
 
 const miniServices = [
   { icon: FaPrescriptionBottleAlt, title: 'E-Prescriptions', bg: 'bg-pink-100', text: 'text-pink-600' },
-  { icon: FaBell, title: 'Smart Reminders', bg: 'bg-red-100', text: 'text-red-600' },
+  { icon: FaHourglassHalf, title: 'Smart Reminders', bg: 'bg-red-100', text: 'text-red-600' },
   { icon: FaSearch, title: 'Find A Vet', bg: 'bg-blue-100', text: 'text-blue-600' },
 ];
 
@@ -273,7 +273,7 @@ const Home = () => {
 
           <motion.div variants={itemVariants} className="card-hover text-center py-8 bg-white rounded-2xl shadow-card border border-ink-100">
             <div className="w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-4 text-2xl">
-              <FaBell />
+              <FaHourglassHalf />
             </div>
             <h3 className="font-bold text-ink-800 mb-1">Smart Reminders</h3>
             <p className="text-ink-500 text-sm">Never miss a vaccination or follow-up appointment again</p>
@@ -793,6 +793,7 @@ const Home = () => {
 };
 
 export default Home;
+
 
 
 

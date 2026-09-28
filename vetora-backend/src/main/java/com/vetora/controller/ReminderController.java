@@ -169,7 +169,7 @@ public class ReminderController {
     public ResponseEntity<?> getUpcomingRemindersForOwner(@PathVariable Long petId) {
         try {
             String ownerEmail = getCurrentUserEmail();
-            List<ReminderResponseDTO> reminders = reminderService.getUpcomingReminders(petId);
+            List<ReminderResponseDTO> reminders = reminderService.getUpcomingRemindersForOwner(petId, ownerEmail);
 
             Map<String, Object> response = new HashMap<>();
             response.put("reminders", reminders);

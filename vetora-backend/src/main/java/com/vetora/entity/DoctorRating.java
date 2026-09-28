@@ -3,12 +3,15 @@ package com.vetora.entity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-// A pet owner's 1–5 star rating (with an optional comment) for a doctor.
-// One row per (doctor, owner) pair — rating again just updates the existing
-// row instead of creating a duplicate, so a doctor's average can't be
-// inflated by the same owner rating them repeatedly.
+// A pet owner's review of a doctor: a 1–5 star rating with an optional comment.
+// An owner can post several reviews over time. The doctor can attach one reply
+// to each review, but cannot change the rating or the comment itself.
+//
+// Table is "doctor_reviews" (the earlier one-rating-per-owner table was
+// "doctor_ratings"). A new name lets Hibernate's ddl-auto=update create the
+// table without that old unique constraint, which update would never drop.
 @Entity
-@Table(name = "doctor_ratings", uniqueConstraints = @UniqueConstraint(columnNames = {"doctor_id", "owner_id"}))
+@Table(name = "doctor_reviews")
 public class DoctorRating {
 
     @Id
@@ -28,6 +31,13 @@ public class DoctorRating {
 
     @Column(columnDefinition = "TEXT")
     private String comment;
+
+    // The doctor's reply to this review (null until they reply)
+    @Column(name = "doctor_reply", columnDefinition = "TEXT")
+    private String doctorReply;
+
+    @Column(name = "doctor_replied_at")
+    private LocalDateTime doctorRepliedAt;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -62,10 +72,17 @@ public class DoctorRating {
     public String getComment() { return comment; }
     public void setComment(String comment) { this.comment = comment; }
 
+    public String getDoctorReply() { return doctorReply; }
+    public void setDoctorReply(String doctorReply) { this.doctorReply = doctorReply; }
+
+    public LocalDateTime getDoctorRepliedAt() { return doctorRepliedAt; }
+    public void setDoctorRepliedAt(LocalDateTime doctorRepliedAt) { this.doctorRepliedAt = doctorRepliedAt; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
+
 
