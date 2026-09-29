@@ -1,12 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import api from '../../api/axios';
-import { useAuth } from '../../context/AuthContext';
 import { FaCalendar } from 'react-icons/fa';
+import { formatDoctorName } from '../../utils/doctorName';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+};
+
+const statusTabs = ['ALL', 'PENDING', 'APPROVED', 'COMPLETED', 'REJECTED', 'CANCELLED'];
 
 const AllAppointments = () => {
-  const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   useEffect(() => {
     fetchAppointments();
@@ -24,68 +36,106 @@ const AllAppointments = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    if (status === 'APPROVED') return 'bg-emerald-100 text-emerald-700';
-    if (status === 'PENDING') return 'bg-orange-100 text-orange-700';
-    if (status === 'REJECTED') return 'bg-red-100 text-red-700';
-    if (status === 'CANCELLED') return 'bg-gray-100 text-gray-700';
-    return 'bg-gray-100 text-gray-700';
+  const counts = useMemo(() => {
+    const c = { ALL: appointments.length };
+    statusTabs.slice(1).forEach((s) => {
+      c[s] = appointments.filter((a) => a.status === s).length;
+    });
+    return c;
+  }, [appointments]);
+
+  const filtered = useMemo(
+    () => (statusFilter === 'ALL' ? appointments : appointments.filter((a) => a.status === statusFilter)),
+    [appointments, statusFilter]
+  );
+
+  const getStatusBadge = (status) => {
+    if (status === 'APPROVED') return 'badge-info';
+    if (status === 'PENDING') return 'badge-warning';
+    if (status === 'COMPLETED') return 'badge-success';
+    if (status === 'REJECTED') return 'badge-danger';
+    return 'badge-neutral'; // CANCELLED
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="spinner w-12 h-12" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <FaCalendar className="text-emerald-600" />
-        All Appointments
-      </h1>
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-6xl mx-auto">
+      <motion.div variants={itemVariants} className="page-header">
+        <h1 className="page-title">
+          <FaCalendar className="text-primary-600" /> All Appointments
+        </h1>
+      </motion.div>
+
+      {/* Status filter tabs */}
+      {appointments.length > 0 && (
+        <motion.div variants={itemVariants} className="flex flex-wrap gap-2 mb-5">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setStatusFilter(tab)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                statusFilter === tab
+                  ? 'bg-primary-600 text-white shadow-soft'
+                  : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+              }`}
+            >
+              {tab.charAt(0) + tab.slice(1).toLowerCase()}
+              <span className="ml-1 opacity-70">({counts[tab] ?? 0})</span>
+            </button>
+          ))}
+        </motion.div>
+      )}
 
       {appointments.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-lg p-12 text-center text-gray-500">
-          <p>No appointments found</p>
-        </div>
+        <motion.div variants={itemVariants} className="empty-state">
+          <FaCalendar className="text-5xl text-ink-300 mb-3" />
+          <p className="text-ink-500">No appointments found</p>
+        </motion.div>
+      ) : filtered.length === 0 ? (
+        <motion.div variants={itemVariants} className="empty-state">
+          <FaCalendar className="text-5xl text-ink-300 mb-3" />
+          <p className="text-ink-500">No appointments match this filter</p>
+        </motion.div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <motion.div variants={itemVariants} className="card !p-0 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-ink-50">
                 <tr>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Pet</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Doctor</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Owner</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Date</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Time</th>
-                  <th className="p-3 text-left text-sm font-medium text-gray-600">Status</th>
+                  <th className="p-3 text-left text-sm font-semibold text-ink-500">Pet</th>
+                  <th className="p-3 text-left text-sm font-semibold text-ink-500">Doctor</th>
+                  <th className="p-3 text-left text-sm font-semibold text-ink-500">Owner</th>
+                  <th className="p-3 text-left text-sm font-semibold text-ink-500">Date</th>
+                  <th className="p-3 text-left text-sm font-semibold text-ink-500">Time</th>
+                  <th className="p-3 text-left text-sm font-semibold text-ink-500">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {appointments.map((app) => (
-                  <tr key={app.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="p-3 font-medium text-gray-800">{app.petName}</td>
-                    <td className="p-3 text-gray-600">Dr. {app.doctorName}</td>
-                    <td className="p-3 text-gray-600">{app.ownerName || 'N/A'}</td>
-                    <td className="p-3 text-gray-600">{app.appointmentDate}</td>
-                    <td className="p-3 text-gray-600">{app.appointmentTime}</td>
+                {filtered.map((app) => (
+                  <tr key={app.id} className="border-t border-ink-100 hover:bg-ink-50">
+                    <td className="p-3 font-semibold text-ink-800">{app.petName}</td>
+                    <td className="p-3 text-ink-600">{formatDoctorName(app.doctorName)}</td>
+                    <td className="p-3 text-ink-600">{app.ownerName || 'N/A'}</td>
+                    <td className="p-3 text-ink-600">{app.appointmentDate}</td>
+                    <td className="p-3 text-ink-600">{app.appointmentTime}</td>
                     <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(app.status)}`}>
-                        {app.status}
-                      </span>
+                      <span className={getStatusBadge(app.status)}>{app.status}</span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

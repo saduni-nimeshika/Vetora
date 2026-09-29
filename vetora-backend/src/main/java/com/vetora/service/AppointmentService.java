@@ -4,6 +4,7 @@ import com.vetora.dto.AppointmentRequestDTO;
 import com.vetora.dto.AppointmentResponseDTO;
 import com.vetora.entity.Appointment;
 import com.vetora.entity.Doctor;
+import java.util.Optional;
 import com.vetora.entity.Notification;
 import com.vetora.entity.Pet;
 import com.vetora.entity.Reminder;
@@ -449,9 +450,9 @@ public class AppointmentService {
         // appointment.getDoctor() returns the User account; the profile image
         // actually lives on the linked Doctor record, so look it up separately.
         User doctorUser = appointment.getDoctor();
-        String doctorProfileImage = doctorRepository.findByUser(doctorUser)
-                .map(Doctor::getProfileImage)
-                .orElse(null);
+        Optional<Doctor> doctorEntity = doctorRepository.findByUser(doctorUser);
+        String doctorProfileImage = doctorEntity.map(Doctor::getProfileImage).orElse(null);
+        Long doctorProfileId = doctorEntity.map(Doctor::getId).orElse(null);
 
         return new AppointmentResponseDTO(
                 appointment.getId(),
@@ -461,6 +462,7 @@ public class AppointmentService {
                 pet.getProfileImage(),
                 ownerName,
                 doctorUser.getId(),
+                doctorProfileId,
                 doctorUser.getName(),
                 doctorProfileImage,
                 appointment.getAppointmentDate(),
@@ -474,6 +476,16 @@ public class AppointmentService {
         );
     }
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

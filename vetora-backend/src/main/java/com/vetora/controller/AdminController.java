@@ -96,8 +96,14 @@ public class AdminController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/users")
-    public ResponseEntity<List<Map<String, Object>>> getAllUsers() {
+    public ResponseEntity<List<Map<String, Object>>> getAllUsers(
+            @RequestParam(required = false) String role) {
         List<User> users = adminService.getAllUsers();
+        if (role != null && !role.isBlank()) {
+            users = users.stream()
+                    .filter(u -> u.getRole() != null && u.getRole().name().equalsIgnoreCase(role))
+                    .collect(Collectors.toList());
+        }
         List<Map<String, Object>> safe = users.stream()
                 .map(this::toSafeUserMap)
                 .collect(Collectors.toList());

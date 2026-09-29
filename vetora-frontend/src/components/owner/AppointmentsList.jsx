@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { FaCalendarCheck, FaPlus, FaTimes, FaUserMd, FaClock, FaPaw } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+import { formatDoctorName } from '../../utils/doctorName';
+
+const statusTabs = ['ALL', 'PENDING', 'APPROVED', 'COMPLETED', 'REJECTED', 'CANCELLED'];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -20,6 +23,7 @@ const AppointmentsList = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   useEffect(() => {
     fetchAppointments();
@@ -60,6 +64,19 @@ const AppointmentsList = () => {
     return 'badge-neutral';
   };
 
+  const counts = useMemo(() => {
+    const c = { ALL: appointments.length };
+    statusTabs.slice(1).forEach((s) => {
+      c[s] = appointments.filter((a) => a.status === s).length;
+    });
+    return c;
+  }, [appointments]);
+
+  const filtered = useMemo(() => {
+    if (statusFilter === 'ALL') return appointments;
+    return appointments.filter((a) => a.status === statusFilter);
+  }, [appointments, statusFilter]);
+
   const Avatar = ({ src, fallbackIcon: Icon, alt, size = 'w-9 h-9', iconClass = 'text-sm' }) => (
     <span className={`${size} rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center shrink-0 overflow-hidden`}>
       {src && src !== 'default-avatar.png' ? (
@@ -94,6 +111,26 @@ const AppointmentsList = () => {
         </motion.div>
       </motion.div>
 
+      {/* Status filter tabs */}
+      {appointments.length > 0 && (
+        <motion.div variants={itemVariants} className="flex flex-wrap gap-2 mb-6">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setStatusFilter(tab)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                statusFilter === tab
+                  ? 'bg-primary-600 text-white shadow-soft'
+                  : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+              }`}
+            >
+              {tab.charAt(0) + tab.slice(1).toLowerCase()}
+              <span className="ml-1 opacity-70">({counts[tab] ?? 0})</span>
+            </button>
+          ))}
+        </motion.div>
+      )}
+
       {appointments.length === 0 ? (
         <motion.div variants={itemVariants} className="empty-state">
           <FaCalendarCheck className="text-5xl text-ink-300 mb-3" />
@@ -101,6 +138,11 @@ const AppointmentsList = () => {
           <Link to="/owner/appointments/book" className="btn-primary">
             <FaPlus /> Book Your First Appointment
           </Link>
+        </motion.div>
+      ) : filtered.length === 0 ? (
+        <motion.div variants={itemVariants} className="empty-state">
+          <FaCalendarCheck className="text-5xl text-ink-300 mb-3" />
+          <p className="text-ink-500">No appointments match this filter</p>
         </motion.div>
       ) : (
         <>
@@ -119,7 +161,7 @@ const AppointmentsList = () => {
               </thead>
               <tbody>
                 <AnimatePresence>
-                  {appointments.map((app) => (
+                  {filtered.map((app) => (
                     <motion.tr
                       key={app.id}
                       layout
@@ -127,16 +169,36 @@ const AppointmentsList = () => {
                       transition={{ duration: 0.2 }}
                     >
                       <td className="font-semibold text-ink-800">
-                        <div className="flex items-center gap-2.5">
-                          <Avatar src={app.petImage} fallbackIcon={FaPaw} alt={app.petName} />
-                          {app.petName}
-                        </div>
+                        {app.petId ? (
+                          <Link
+                            to={`/owner/pets/${app.petId}`}
+                            className="flex items-center gap-2.5 hover:text-primary-600 transition-colors"
+                          >
+                            <Avatar src={app.petImage} fallbackIcon={FaPaw} alt={app.petName} />
+                            {app.petName}
+                          </Link>
+                        ) : (
+                          <div className="flex items-center gap-2.5">
+                            <Avatar src={app.petImage} fallbackIcon={FaPaw} alt={app.petName} />
+                            {app.petName}
+                          </div>
+                        )}
                       </td>
                       <td>
-                        <div className="flex items-center gap-2.5">
-                          <Avatar src={app.doctorImage} fallbackIcon={FaUserMd} alt={app.doctorName} />
-                          Dr. {app.doctorName}
-                        </div>
+                        {app.doctorProfileId ? (
+                          <Link
+                            to={`/owner/doctors/${app.doctorProfileId}`}
+                            className="flex items-center gap-2.5 hover:text-primary-600 transition-colors"
+                          >
+                            <Avatar src={app.doctorImage} fallbackIcon={FaUserMd} alt={app.doctorName} />
+                            {formatDoctorName(app.doctorName)}
+                          </Link>
+                        ) : (
+                          <div className="flex items-center gap-2.5">
+                            <Avatar src={app.doctorImage} fallbackIcon={FaUserMd} alt={app.doctorName} />
+                            {formatDoctorName(app.doctorName)}
+                          </div>
+                        )}
                       </td>
                       <td>{app.appointmentDate}</td>
                       <td>{app.appointmentTime}</td>
@@ -165,7 +227,7 @@ const AppointmentsList = () => {
           {/* Mobile cards */}
           <motion.div variants={containerVariants} className="md:hidden space-y-3">
             <AnimatePresence>
-              {appointments.map((app) => (
+              {filtered.map((app) => (
                 <motion.div
                   key={app.id}
                   variants={itemVariants}
@@ -176,11 +238,27 @@ const AppointmentsList = () => {
                     <div className="flex items-center gap-2.5">
                       <Avatar src={app.petImage} fallbackIcon={FaPaw} alt={app.petName} size="w-10 h-10" />
                       <div>
-                        <p className="font-bold text-ink-900">{app.petName}</p>
-                        <p className="text-xs text-ink-400 flex items-center gap-1.5 mt-0.5">
-                          <Avatar src={app.doctorImage} fallbackIcon={FaUserMd} alt={app.doctorName} size="w-4 h-4" iconClass="text-[8px]" />
-                          Dr. {app.doctorName}
-                        </p>
+                        {app.petId ? (
+                          <Link to={`/owner/pets/${app.petId}`} className="font-bold text-ink-900 hover:text-primary-600 transition-colors">
+                            {app.petName}
+                          </Link>
+                        ) : (
+                          <p className="font-bold text-ink-900">{app.petName}</p>
+                        )}
+                        {app.doctorProfileId ? (
+                          <Link
+                            to={`/owner/doctors/${app.doctorProfileId}`}
+                            className="text-xs text-ink-400 flex items-center gap-1.5 mt-0.5 hover:text-primary-600 transition-colors"
+                          >
+                            <Avatar src={app.doctorImage} fallbackIcon={FaUserMd} alt={app.doctorName} size="w-4 h-4" iconClass="text-[8px]" />
+                            {formatDoctorName(app.doctorName)}
+                          </Link>
+                        ) : (
+                          <p className="text-xs text-ink-400 flex items-center gap-1.5 mt-0.5">
+                            <Avatar src={app.doctorImage} fallbackIcon={FaUserMd} alt={app.doctorName} size="w-4 h-4" iconClass="text-[8px]" />
+                            {formatDoctorName(app.doctorName)}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <span className={getStatusBadge(app.status)}>{app.status}</span>
@@ -211,4 +289,12 @@ const AppointmentsList = () => {
 };
 
 export default AppointmentsList;
+
+
+
+
+
+
+
+
 

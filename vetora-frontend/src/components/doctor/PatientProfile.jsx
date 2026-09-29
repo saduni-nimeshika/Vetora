@@ -171,10 +171,23 @@ const PatientProfile = () => {
                 <button
                   key={t.key}
                   onClick={() => setActiveTab(t.key)}
-                  className={activeTab === t.key ? 'tab-item-active w-full justify-start !border-b-0 !bg-primary-50 rounded-lg' : 'tab-item w-full justify-start !border-b-0 hover:bg-ink-50 rounded-lg'}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === t.key
+                      ? 'bg-primary-50 text-primary-700'
+                      : 'text-ink-500 hover:bg-ink-50 hover:text-ink-800'
+                  }`}
                 >
-                  {t.icon} {t.label}
-                  {t.count > 0 && <span className="ml-auto badge-neutral">{t.count}</span>}
+                  <span className="w-4 text-center text-base shrink-0">{t.icon}</span>
+                  <span className="flex-1 text-left">{t.label}</span>
+                  {t.count > 0 && (
+                    <span
+                      className={`text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center shrink-0 ${
+                        activeTab === t.key ? 'bg-primary-600 text-white' : 'bg-ink-100 text-ink-500'
+                      }`}
+                    >
+                      {t.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </nav>
@@ -408,6 +421,8 @@ const PatientProfile = () => {
 };
 
 export default PatientProfile;
+
+
 
 
 

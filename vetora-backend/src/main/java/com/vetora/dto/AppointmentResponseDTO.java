@@ -13,6 +13,7 @@ public class AppointmentResponseDTO {
     private String petImage;
     private String ownerName;
     private Long doctorId;
+    private Long doctorProfileId;
     private String doctorName;
     private String doctorImage;
     private LocalDate appointmentDate;
@@ -29,7 +30,7 @@ public class AppointmentResponseDTO {
 
     public AppointmentResponseDTO(Long id, Long petId, String petName, String petSpecies,
                                   String petImage, String ownerName,
-                                  Long doctorId, String doctorName, String doctorImage, LocalDate appointmentDate,
+                                  Long doctorId, Long doctorProfileId, String doctorName, String doctorImage, LocalDate appointmentDate,
                                   LocalTime appointmentTime, LocalDateTime appointmentDateTime,
                                   String status, String notes, String rejectionReason,
                                   LocalDateTime createdAt, LocalDateTime updatedAt) {
@@ -40,6 +41,7 @@ public class AppointmentResponseDTO {
         this.petImage = petImage;
         this.ownerName = ownerName;
         this.doctorId = doctorId;
+        this.doctorProfileId = doctorProfileId;
         this.doctorName = doctorName;
         this.doctorImage = doctorImage;
         this.appointmentDate = appointmentDate;
@@ -74,6 +76,12 @@ public class AppointmentResponseDTO {
     public Long getDoctorId() { return doctorId; }
     public void setDoctorId(Long doctorId) { this.doctorId = doctorId; }
 
+    // The Doctor entity's own primary key (different from doctorId, which is
+    // the linked User account's id) — this is what /api/v1/search/doctors/{id}
+    // and the owner-facing "View doctor profile" pages expect.
+    public Long getDoctorProfileId() { return doctorProfileId; }
+    public void setDoctorProfileId(Long doctorProfileId) { this.doctorProfileId = doctorProfileId; }
+
     public String getDoctorName() { return doctorName; }
     public void setDoctorName(String doctorName) { this.doctorName = doctorName; }
 
@@ -104,5 +112,8 @@ public class AppointmentResponseDTO {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
+
+
+
 
 

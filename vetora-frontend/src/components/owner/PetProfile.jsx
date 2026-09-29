@@ -196,6 +196,14 @@ const PetProfile = () => {
   }
 
   // Weight chart data — built from real logged entries, no fabricated history
+  const weightValues = weightHistory.map((r) => r.weight);
+  const weightMin = weightValues.length ? Math.min(...weightValues) : 0;
+  const weightMax = weightValues.length ? Math.max(...weightValues) : 1;
+  // Zoom the y-axis into the actual range (with a little padding) instead of
+  // starting at 0 — otherwise small, real changes get flattened into a line
+  // stretched across a mostly-empty chart.
+  const weightPadding = Math.max((weightMax - weightMin) * 0.4, 0.5);
+
   const weightData = {
     labels: weightHistory.map((r) =>
       new Date(r.recordedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -203,15 +211,25 @@ const PetProfile = () => {
     datasets: [
       {
         label: 'Weight (kg)',
-        data: weightHistory.map((r) => r.weight),
+        data: weightValues,
         borderColor: '#059669',
-        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+        borderWidth: 2.5,
+        backgroundColor: (context) => {
+          const { ctx, chartArea } = context.chart;
+          if (!chartArea) return 'rgba(5, 150, 105, 0.12)';
+          const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0, 'rgba(5, 150, 105, 0.28)');
+          gradient.addColorStop(1, 'rgba(5, 150, 105, 0)');
+          return gradient;
+        },
         fill: true,
-        tension: 0.4,
+        tension: 0.35,
         pointBackgroundColor: '#059669',
         pointBorderColor: '#fff',
-        pointBorderWidth: 1.5,
-        pointRadius: 3,
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: '#047857',
       }
     ]
   };
@@ -219,22 +237,44 @@ const PetProfile = () => {
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: {
         display: false,
       },
+      tooltip: {
+        backgroundColor: '#111827',
+        titleColor: '#f9fafb',
+        bodyColor: '#f9fafb',
+        padding: 10,
+        cornerRadius: 8,
+        displayColors: false,
+        callbacks: {
+          label: (item) => `${item.formattedValue} kg`,
+        },
+      },
     },
     scales: {
       y: {
-        beginAtZero: true,
+        min: Math.max(0, +(weightMin - weightPadding).toFixed(1)),
+        max: +(weightMax + weightPadding).toFixed(1),
+        ticks: {
+          color: '#9ca3af',
+          font: { size: 11 },
+          callback: (val) => `${val} kg`,
+        },
         grid: {
-          color: 'rgba(0,0,0,0.05)',
-        }
+          color: 'rgba(0,0,0,0.06)',
+          drawTicks: false,
+        },
+        border: { display: false },
       },
       x: {
+        ticks: { color: '#9ca3af', font: { size: 11 } },
         grid: {
           display: false,
-        }
+        },
+        border: { display: false },
       }
     }
   };
@@ -298,12 +338,23 @@ const PetProfile = () => {
                 <button
                   key={t.key}
                   onClick={() => setActiveTab(t.key)}
-                  className={activeTab === t.key
-                    ? 'tab-item-active w-full justify-start !border-b-0 !bg-primary-50 rounded-lg'
-                    : 'tab-item w-full justify-start !border-b-0 hover:bg-ink-50 rounded-lg'}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === t.key
+                      ? 'bg-primary-50 text-primary-700'
+                      : 'text-ink-500 hover:bg-ink-50 hover:text-ink-800'
+                  }`}
                 >
-                  {t.icon} {t.label}
-                  {t.count > 0 && <span className="ml-auto badge-neutral">{t.count}</span>}
+                  <span className="w-4 text-center text-base shrink-0">{t.icon}</span>
+                  <span className="flex-1 text-left">{t.label}</span>
+                  {t.count > 0 && (
+                    <span
+                      className={`text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center shrink-0 ${
+                        activeTab === t.key ? 'bg-primary-600 text-white' : 'bg-ink-100 text-ink-500'
+                      }`}
+                    >
+                      {t.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </nav>
@@ -361,7 +412,7 @@ const PetProfile = () => {
                   </p>
                 ) : (
                   <>
-                    <div className="h-48">
+                    <div className="h-56">
                       <Line data={weightData} options={chartOptions} />
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
@@ -657,4 +708,6 @@ const PetProfile = () => {
 };
 
 export default PetProfile;
+
+
 
