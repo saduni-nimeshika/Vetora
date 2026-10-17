@@ -26,6 +26,13 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     boolean existsByDoctorIdAndAppointmentDateAndAppointmentTimeAndStatusNot(
             Long doctorId, LocalDate date, LocalTime time, Appointment.AppointmentStatus status);
 
+    // A slot is taken unless the appointment holding it was cancelled or rejected
+    boolean existsByDoctorIdAndAppointmentDateAndAppointmentTimeAndStatusNotIn(
+            Long doctorId, LocalDate date, LocalTime time, java.util.Collection<Appointment.AppointmentStatus> statuses);
+
+    // All of a doctor's appointments in a date range (used to hide taken slots in the calendar)
+    List<Appointment> findByDoctorIdAndAppointmentDateBetween(Long doctorId, LocalDate start, LocalDate end);
+
     // Find appointments by pet owner
     List<Appointment> findByPetOwnerIdOrderByAppointmentDateTimeDesc(Long ownerId);
 

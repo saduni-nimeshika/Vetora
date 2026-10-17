@@ -56,6 +56,45 @@ const DoctorAppointments = () => {
     }
   };
 
+  // ---- Reject / cancel with an optional reason shown to the pet owner ----
+  const [reasonDialog, setReasonDialog] = useState(null); // { app, mode: 'reject' | 'cancel' }
+  const [reasonText, setReasonText] = useState('');
+
+  const openReasonDialog = (app, mode) => {
+    setReasonDialog({ app, mode });
+    setReasonText('');
+  };
+
+  const closeReasonDialog = () => {
+    if (updating) return;
+    setReasonDialog(null);
+    setReasonText('');
+  };
+
+  const submitReasonDialog = async () => {
+    if (!reasonDialog) return;
+    const { app, mode } = reasonDialog;
+    setUpdating(app.id);
+    try {
+      const reason = reasonText.trim();
+      const query = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+      await api.put(`/api/v1/doctor/appointments/${app.id}/${mode === 'reject' ? 'reject' : 'cancel'}${query}`);
+      toast.success(mode === 'reject' ? 'Request rejected. The pet owner has been notified.' : 'Appointment cancelled. The pet owner has been notified.');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Action failed');
+    } finally {
+      setUpdating(null);
+      setReasonDialog(null);
+      setReasonText('');
+      fetchAppointments(true);
+    }
+  };
+
+  // "Complete" is only possible once the appointment time has started
+  const hasStarted = (app) => new Date(`${app.appointmentDate}T${app.appointmentTime}`) <= new Date();
+  // An approved appointment can be called off only while it is still in the future
+  const isUpcoming = (app) => !hasStarted(app);
+
   const handleStatusUpdate = async (appointmentId, status) => {
     setUpdating(appointmentId);
     try {
@@ -75,7 +114,7 @@ const DoctorAppointments = () => {
       } else if (error.response?.status === 404) {
         toast.error('Appointment not found');
       } else {
-        toast.error(error.response?.data?.message || 'Failed to update status');
+        toast.error(error.response?.data?.error || error.response?.data?.message || 'Failed to update status');
       }
     } finally {
       setUpdating(null);
@@ -124,23 +163,34 @@ const DoctorAppointments = () => {
             <FaCheck className="text-sm" />
           </button>
           <button
-            onClick={() => handleStatusUpdate(app.id, 'REJECTED')}
+            onClick={() => openReasonDialog(app, 'reject')}
             disabled={updating === app.id}
-            className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
-            title="Reject"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 text-xs font-semibold"
           >
-            <FaTimes className="text-sm" />
+            <FaTimes className="text-[10px]" /> Reject
           </button>
         </>
       )}
       {app.status === 'APPROVED' && (
-        <button
-          onClick={() => handleStatusUpdate(app.id, 'COMPLETED')}
-          disabled={updating === app.id}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 text-xs font-semibold"
-        >
-          <FaCheckCircle className="text-xs" /> Complete
-        </button>
+        <>
+          <button
+            onClick={() => handleStatusUpdate(app.id, 'COMPLETED')}
+            disabled={updating === app.id || !hasStarted(app)}
+            title={hasStarted(app) ? 'Mark this visit as completed' : 'Available once the appointment time has started'}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold"
+          >
+            <FaCheckCircle className="text-xs" /> Complete
+          </button>
+          {isUpcoming(app) && (
+            <button
+              onClick={() => openReasonDialog(app, 'cancel')}
+              disabled={updating === app.id}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 text-xs font-semibold"
+            >
+              <FaTimes className="text-[10px]" /> Cancel
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -293,6 +343,64 @@ const DoctorAppointments = () => {
           </motion.div>
         </>
       )}
+
+      {/* Reject / cancel window */}
+      <AnimatePresence>
+        {reasonDialog && (
+          <motion.div
+            key="reason-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+            onClick={closeReasonDialog}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="bg-white rounded-2xl shadow-elevated w-full max-w-md p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-ink-900">
+                {reasonDialog.mode === 'reject' ? 'Reject this request?' : 'Cancel this appointment?'}
+              </h3>
+              <div className="mt-4 rounded-xl bg-ink-50 p-3 text-sm text-ink-600 space-y-1">
+                <p><span className="text-ink-400">Pet:</span> <b className="text-ink-800">{reasonDialog.app.petName}</b></p>
+                <p><span className="text-ink-400">Owner:</span> <b className="text-ink-800">{reasonDialog.app.ownerName}</b></p>
+                <p><span className="text-ink-400">When:</span> <b className="text-ink-800">{reasonDialog.app.appointmentDate} at {reasonDialog.app.appointmentTime}</b></p>
+              </div>
+              <p className="mt-3 text-xs text-ink-500">
+                {reasonDialog.mode === 'reject'
+                  ? 'The pet owner will be told that you could not accept this request, together with your reason.'
+                  : 'This appointment was already approved. The pet owner will be notified by bell and e-mail, and the time slot becomes free again.'}
+              </p>
+              <label className="form-label mt-4">Reason (optional, shown to the pet owner)</label>
+              <textarea
+                className="textarea-field"
+                rows="3"
+                maxLength={250}
+                value={reasonText}
+                onChange={(e) => setReasonText(e.target.value)}
+                placeholder={reasonDialog.mode === 'reject' ? 'e.g. Fully booked that day, please choose another time' : 'e.g. Emergency surgery, please rebook'}
+              />
+              <div className="mt-5 flex gap-3 justify-end">
+                <button type="button" onClick={closeReasonDialog} disabled={!!updating} className="btn-secondary">
+                  Go back
+                </button>
+                <button
+                  type="button"
+                  onClick={submitReasonDialog}
+                  disabled={!!updating}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-60"
+                >
+                  {updating ? 'Please wait...' : reasonDialog.mode === 'reject' ? 'Yes, reject' : 'Yes, cancel appointment'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

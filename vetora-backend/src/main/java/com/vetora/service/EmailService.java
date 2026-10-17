@@ -2,6 +2,7 @@ package com.vetora.service;
 
 import com.vetora.entity.Doctor;
 import com.vetora.entity.User;
+import com.vetora.util.TextUtils;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,7 +136,7 @@ public class EmailService {
             message.setTo(to);
             message.setSubject("✅ VETORA - Your Account Has Been Approved!");
             message.setText(
-                    "Dear Dr. " + doctorName + ",\n\n" +
+                    "Dear " + TextUtils.doctorLabel(doctorName) + ",\n\n" +
                             "🎉 Congratulations! Your VETORA account has been approved by the administrator.\n\n" +
                             "You can now login and start using VETORA.\n\n" +
                             "Best Regards,\n" +
@@ -156,7 +157,7 @@ public class EmailService {
             message.setTo(to);
             message.setSubject("📋 VETORA - Account Registration Update");
             message.setText(
-                    "Dear Dr. " + doctorName + ",\n\n" +
+                    "Dear " + TextUtils.doctorLabel(doctorName) + ",\n\n" +
                             "We regret to inform you that your VETORA registration has been rejected.\n\n" +
                             "Reason: " + (reason != null ? reason : "Verification failed") + "\n\n" +
                             "Best Regards,\n" +
@@ -239,7 +240,7 @@ public class EmailService {
                             "✅ Your appointment request has been received!\n\n" +
                             "📋 Details:\n" +
                             "🐕 Pet: " + petName + "\n" +
-                            "👨‍⚕️ Doctor: Dr. " + doctorName + "\n" +
+                            "👨‍⚕️ Doctor: " + TextUtils.doctorLabel(doctorName) + "\n" +
                             "📅 Date: " + date + "\n" +
                             "⏰ Time: " + time + "\n\n" +
                             "⏳ Status: PENDING (Waiting for doctor approval)\n\n" +
@@ -264,7 +265,7 @@ public class EmailService {
             message.setTo(to);
             message.setSubject("📅 VETORA - New Appointment Request");
             message.setText(
-                    "Dear Dr. " + doctorName + ",\n\n" +
+                    "Dear " + TextUtils.doctorLabel(doctorName) + ",\n\n" +
                             "📅 A new appointment request is waiting for your review!\n\n" +
                             "📋 Details:\n" +
                             "🐕 Pet: " + petName + "\n" +
@@ -294,10 +295,10 @@ public class EmailService {
             message.setSubject("✅ VETORA - Appointment Approved!");
             message.setText(
                     "Dear " + ownerName + ",\n\n" +
-                            "✅ Your appointment has been approved by Dr. " + doctorName + "!\n\n" +
+                            "✅ Your appointment has been approved by " + TextUtils.doctorLabel(doctorName) + "!\n\n" +
                             "📋 Details:\n" +
                             "🐕 Pet: " + petName + "\n" +
-                            "👨‍⚕️ Doctor: Dr. " + doctorName + "\n" +
+                            "👨‍⚕️ Doctor: " + TextUtils.doctorLabel(doctorName) + "\n" +
                             "📅 Date: " + date + "\n" +
                             "⏰ Time: " + time + "\n" +
                             (notes != null ? "📝 Notes: " + notes + "\n\n" : "\n") +
@@ -323,7 +324,7 @@ public class EmailService {
             message.setSubject("❌ VETORA - Appointment Rejected");
             message.setText(
                     "Dear " + ownerName + ",\n\n" +
-                            "❌ Your appointment has been rejected by Dr. " + doctorName + ".\n\n" +
+                            "❌ Your appointment has been rejected by " + TextUtils.doctorLabel(doctorName) + ".\n\n" +
                             "📋 Details:\n" +
                             "🐕 Pet: " + petName + "\n" +
                             "📅 Date: " + date + "\n" +
@@ -363,7 +364,7 @@ public class EmailService {
             message.setTo(to);
             message.setSubject("❌ VETORA - Appointment Cancelled");
             message.setText(
-                    "Dear Dr. " + doctorName + ",\n\n" +
+                    "Dear " + TextUtils.doctorLabel(doctorName) + ",\n\n" +
                             "❌ An appointment has been cancelled by the pet owner.\n\n" +
                             "📋 Cancelled Appointment Details:\n" +
                             "🐕 Pet: " + petName + "\n" +
@@ -378,6 +379,35 @@ public class EmailService {
             logger.info("✅ Appointment cancellation email sent to doctor: {}", to);
         } catch (Exception e) {
             logger.error("❌ Failed to send appointment cancellation email to doctor: {}", e.getMessage());
+        }
+    }
+
+    // ✅ Appointment cancelled by the doctor (to the pet owner)
+    @Async
+    public void sendAppointmentCancelledToOwner(String to, String ownerName, String petName,
+                                                String doctorName, LocalDate date, LocalTime time,
+                                                String reason) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("❌ VETORA - Your Appointment Was Cancelled");
+            message.setText(
+                    "Dear " + ownerName + ",\n\n" +
+                            "We are sorry to let you know that " + TextUtils.doctorLabel(doctorName) +
+                            " had to cancel your appointment.\n\n" +
+                            "📋 Cancelled Appointment Details:\n" +
+                            "🐕 Pet: " + petName + "\n" +
+                            "📅 Date: " + date + "\n" +
+                            "⏰ Time: " + time + "\n" +
+                            (reason != null && !reason.isBlank() ? "📝 Reason: " + reason + "\n" : "") +
+                            "\nYou can book another time from your VETORA account.\n\n" +
+                            "Best Regards,\n" +
+                            "VETORA Team"
+            );
+            mailSender.send(message);
+            logger.info("✅ Appointment cancellation email sent to owner: {}", to);
+        } catch (Exception e) {
+            logger.error("❌ Failed to send appointment cancellation email to owner: {}", e.getMessage());
         }
     }
 }

@@ -1,7 +1,9 @@
 package com.vetora.service;
 
+import com.vetora.entity.Appointment;
 import com.vetora.entity.Doctor;
 import com.vetora.entity.DoctorAvailabilityException;
+import com.vetora.repository.AppointmentRepository;
 import com.vetora.repository.DoctorAvailabilityExceptionRepository;
 import com.vetora.repository.DoctorRepository;
 import com.vetora.repository.UserRepository;
@@ -22,6 +24,7 @@ public class DoctorAvailabilityService {
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
     private final DoctorAvailabilityExceptionRepository exceptionRepository;
+    private final AppointmentRepository appointmentRepository;
 
     // Weekday mapping
     private static final Map<String, Integer> DAY_OF_WEEK = new HashMap<>();
@@ -37,10 +40,12 @@ public class DoctorAvailabilityService {
 
     public DoctorAvailabilityService(DoctorRepository doctorRepository,
                                      UserRepository userRepository,
-                                     DoctorAvailabilityExceptionRepository exceptionRepository) {
+                                     DoctorAvailabilityExceptionRepository exceptionRepository,
+                                     AppointmentRepository appointmentRepository) {
         this.doctorRepository = doctorRepository;
         this.userRepository = userRepository;
         this.exceptionRepository = exceptionRepository;
+        this.appointmentRepository = appointmentRepository;
     }
 
     // ✅ Set Doctor Availability
@@ -120,12 +125,27 @@ public class DoctorAvailabilityService {
         response.put("endTime", doctor.getAvailableEndTime());
         response.put("slotDuration", doctor.getSlotDuration());
 
+        // Times already taken by pending/approved appointments (cancelled and rejected ones free the slot)
+        DateTimeFormatter hhmm = DateTimeFormatter.ofPattern("HH:mm");
+        Map<LocalDate, Set<String>> booked = new HashMap<>();
+        for (Appointment a : appointmentRepository.findByDoctorIdAndAppointmentDateBetween(
+                doctor.getUser().getId(), startDate, endDate)) {
+            if (a.getStatus() == Appointment.AppointmentStatus.CANCELLED
+                    || a.getStatus() == Appointment.AppointmentStatus.REJECTED) {
+                continue;
+            }
+            booked.computeIfAbsent(a.getAppointmentDate(), k -> new HashSet<>())
+                    .add(a.getAppointmentTime().format(hhmm));
+        }
+
         // Generate availability for each date
         Map<String, Map<String, Object>> dailyAvailability = new LinkedHashMap<>();
         LocalDate current = startDate;
 
         while (!current.isAfter(endDate)) {
-            dailyAvailability.put(current.toString(), getDayAvailability(doctor, current, exceptions));
+            Map<String, Object> day = getDayAvailability(doctor, current, exceptions);
+            applyBookings(day, current, booked.getOrDefault(current, Collections.emptySet()));
+            dailyAvailability.put(current.toString(), day);
             current = current.plusDays(1);
         }
 
@@ -178,6 +198,34 @@ public class DoctorAvailabilityService {
                 doctor.getAvailableEndTime(), doctor.getSlotDuration()));
 
         return dayInfo;
+    }
+
+    // Remove slots that are already booked or already in the past, and mark a day that
+    // has nothing left as unavailable so the calendar and the booking page stay honest.
+    @SuppressWarnings("unchecked")
+    private void applyBookings(Map<String, Object> day, LocalDate date, Set<String> bookedTimes) {
+        Object raw = day.get("slots");
+        if (!(raw instanceof List)) return;
+
+        List<String> all = (List<String>) raw;
+        LocalDate today = LocalDate.now();
+        LocalTime nowTime = LocalTime.now();
+
+        List<String> free = new ArrayList<>();
+        for (String t : all) {
+            if (bookedTimes.contains(t)) continue;
+            if (date.isBefore(today)) continue;
+            if (date.equals(today) && LocalTime.parse(t).isBefore(nowTime)) continue;
+            free.add(t);
+        }
+
+        day.put("slots", free);
+        day.put("totalSlots", all.size());
+        if (free.isEmpty() && !all.isEmpty()) {
+            day.put("available", false);
+            day.put("reason", date.isBefore(today) ? "Date has passed"
+                    : date.equals(today) ? "No more slots left today" : "Fully booked");
+        }
     }
 
     // ✅ Generate Time Slots

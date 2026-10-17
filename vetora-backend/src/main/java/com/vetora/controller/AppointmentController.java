@@ -52,10 +52,11 @@ public class AppointmentController {
 
     // ✅ Cancel Appointment
     @PutMapping("/owner/appointments/{appointmentId}/cancel")
-    public ResponseEntity<?> cancelAppointment(@PathVariable Long appointmentId) {
+    public ResponseEntity<?> cancelAppointment(@PathVariable Long appointmentId,
+                                               @RequestParam(required = false) String reason) {
         try {
             String ownerEmail = getCurrentUserEmail();
-            AppointmentResponseDTO appointment = appointmentService.cancelAppointment(appointmentId, ownerEmail);
+            AppointmentResponseDTO appointment = appointmentService.cancelAppointment(appointmentId, ownerEmail, reason);
 
             Map<String, Object> response = new HashMap<>();
             response.put("appointment", appointment);
@@ -159,6 +160,26 @@ public class AppointmentController {
             Map<String, Object> response = new HashMap<>();
             response.put("appointment", appointment);
             response.put("message", "✅ Appointment rejected successfully! Notification sent to pet owner.");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    // ✅ Cancel an already-approved appointment (Doctor) — e.g. an emergency
+    @PutMapping("/doctor/appointments/{appointmentId}/cancel")
+    public ResponseEntity<?> cancelAppointmentByDoctor(@PathVariable Long appointmentId,
+                                                       @RequestParam(required = false) String reason) {
+        try {
+            String doctorEmail = getCurrentUserEmail();
+            AppointmentResponseDTO appointment = appointmentService.cancelAppointmentByDoctor(appointmentId, doctorEmail, reason);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("appointment", appointment);
+            response.put("message", "✅ Appointment cancelled. The pet owner has been notified.");
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {

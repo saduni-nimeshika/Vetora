@@ -330,6 +330,38 @@ const DoctorProfileView = () => {
                       </span>
                     </div>
                   </div>
+
+                  {/* Where the doctor works — read-only map of the saved clinic pin */}
+                  {doctor.latitude && doctor.longitude ? (
+                    <div className="mt-4">
+                      <div className="rounded-xl overflow-hidden border border-ink-200" style={{ height: '220px' }}>
+                        <MapContainer
+                          center={[doctor.latitude, doctor.longitude]}
+                          zoom={15}
+                          scrollWheelZoom={false}
+                          style={{ height: '100%', width: '100%' }}
+                        >
+                          <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                          />
+                          <Marker position={[doctor.latitude, doctor.longitude]} />
+                        </MapContainer>
+                      </div>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${doctor.latitude},${doctor.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 hover:underline"
+                      >
+                        <FaMapMarkerAlt /> Open in Google Maps
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      Your clinic's exact location isn't pinned yet. Click <b>Edit Profile</b> and drop a pin on the map so pet owners can see where you work.
+                    </p>
+                  )}
                 </div>
               </motion.div>
             ) : (

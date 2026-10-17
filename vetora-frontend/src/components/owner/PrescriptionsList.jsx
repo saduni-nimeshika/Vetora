@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { FaPrescription, FaArrowLeft } from 'react-icons/fa';
+import { formatDoctorName } from '../../utils/doctorName';
 
 const PrescriptionsList = () => {
   const { petId } = useParams();
@@ -77,7 +78,7 @@ const PrescriptionsList = () => {
                     <p className="text-sm text-gray-500 mt-2">📋 {pres.instructions}</p>
                   )}
                   <p className="text-xs text-gray-400 mt-2">
-                    Doctor: Dr. {pres.doctorName} • {pres.prescribedDate?.split('T')[0]}
+                    Doctor: {formatDoctorName(pres.doctorName)} • {pres.prescribedDate?.split('T')[0]}
                   </p>
                 </div>
                 <span className={`px-2 py-1 rounded-full text-xs ${pres.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'}`}>

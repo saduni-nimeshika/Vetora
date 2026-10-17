@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,6 +39,7 @@ public class AppointmentService {
     private final ReminderRepository reminderRepository;
     private final ReminderService reminderService;   // ✅ Add this
     private final NotificationService notificationService;
+    private final DoctorAvailabilityService availabilityService;
 
     // ✅ Constructor - හරියට
     public AppointmentService(AppointmentRepository appointmentRepository,
@@ -47,7 +49,8 @@ public class AppointmentService {
                               EmailService emailService,
                               ReminderRepository reminderRepository,
                               ReminderService reminderService,
-                              NotificationService notificationService) {
+                              NotificationService notificationService,
+                              DoctorAvailabilityService availabilityService) {
         this.appointmentRepository = appointmentRepository;
         this.petRepository = petRepository;
         this.userRepository = userRepository;
@@ -56,6 +59,7 @@ public class AppointmentService {
         this.reminderRepository = reminderRepository;
         this.reminderService = reminderService;   // ✅ Add this
         this.notificationService = notificationService;
+        this.availabilityService = availabilityService;
     }
 
     // ============================================================
@@ -167,10 +171,23 @@ public class AppointmentService {
             throw new RuntimeException("Doctor is not approved yet!");
         }
 
-        // Check if slot is available
-        boolean slotBooked = appointmentRepository.existsByDoctorIdAndAppointmentDateAndAppointmentTimeAndStatusNot(
+        // The appointment must be in the future
+        LocalDateTime requested = LocalDateTime.of(request.getAppointmentDate(), request.getAppointmentTime());
+        if (!requested.isAfter(LocalDateTime.now())) {
+            throw new RuntimeException("Please choose a date and time in the future.");
+        }
+
+        // The doctor must actually work at that date/time (weekly pattern, leave and special days)
+        String timeText = request.getAppointmentTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+        if (!availabilityService.isSlotAvailable(doctorProfile.getId(), request.getAppointmentDate(), timeText)) {
+            throw new RuntimeException("The doctor is not available at that date and time. "
+                    + "Please pick a time from the availability calendar.");
+        }
+
+        // Check if slot is available (cancelled and rejected appointments free the slot again)
+        boolean slotBooked = appointmentRepository.existsByDoctorIdAndAppointmentDateAndAppointmentTimeAndStatusNotIn(
                 request.getDoctorId(), request.getAppointmentDate(), request.getAppointmentTime(),
-                Appointment.AppointmentStatus.CANCELLED);
+                List.of(Appointment.AppointmentStatus.CANCELLED, Appointment.AppointmentStatus.REJECTED));
 
         if (slotBooked) {
             throw new RuntimeException("This time slot is already booked!");
@@ -268,7 +285,7 @@ public class AppointmentService {
 
     // ✅ Cancel Appointment (Pet Owner)
     @Transactional
-    public AppointmentResponseDTO cancelAppointment(Long appointmentId, String ownerEmail) {
+    public AppointmentResponseDTO cancelAppointment(Long appointmentId, String ownerEmail, String reason) {
         User owner = userRepository.findByEmail(ownerEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -287,7 +304,20 @@ public class AppointmentService {
             throw new RuntimeException("Appointment is already cancelled!");
         }
 
+        // Only PENDING or APPROVED appointments can be cancelled
+        if (appointment.getStatus() == Appointment.AppointmentStatus.REJECTED) {
+            throw new RuntimeException("The doctor already rejected this appointment, so there is nothing to cancel.");
+        }
+
+        // A visit that is already in the past cannot be cancelled any more
+        if (LocalDateTime.of(appointment.getAppointmentDate(), appointment.getAppointmentTime())
+                .isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("This appointment time has already passed, so it can no longer be cancelled.");
+        }
+
+        String cleanReason = cleanReason(reason);
         appointment.setStatus(Appointment.AppointmentStatus.CANCELLED);
+        appointment.setCancellationReason(cleanReason);
         Appointment savedAppointment = appointmentRepository.save(appointment);
 
         // Switch off this appointment's reminder (only this one)
@@ -296,7 +326,8 @@ public class AppointmentService {
         // 🔔 Automatic in-app notification to the doctor
         safeNotify(appointment.getDoctor(), Notification.NotificationType.APPOINTMENT_CANCELLED,
                 "Appointment cancelled",
-                owner.getName() + " cancelled the appointment for " + describe(appointment) + ".",
+                owner.getName() + " cancelled the appointment for " + describe(appointment) + "."
+                        + (cleanReason != null ? " Reason: " + cleanReason : ""),
                 "/doctor/appointments", appointment.getId());
 
         // ✅ Send cancellation email to doctor
@@ -316,6 +347,64 @@ public class AppointmentService {
         }
 
         return convertToResponseDTO(savedAppointment);
+    }
+
+    // ✅ Cancel an APPROVED appointment (Doctor) — notifies the pet owner by bell and e-mail
+    @Transactional
+    public AppointmentResponseDTO cancelAppointmentByDoctor(Long appointmentId, String doctorEmail, String reason) {
+        User doctor = userRepository.findByEmail(doctorEmail)
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Appointment not found"));
+
+        if (!appointment.getDoctor().getId().equals(doctor.getId())) {
+            throw new RuntimeException("You can only cancel your own appointments!");
+        }
+
+        if (appointment.getStatus() == Appointment.AppointmentStatus.PENDING) {
+            throw new RuntimeException("This request is still pending. Use Reject instead of Cancel.");
+        }
+        if (appointment.getStatus() != Appointment.AppointmentStatus.APPROVED) {
+            throw new RuntimeException("Only approved appointments can be cancelled.");
+        }
+        if (LocalDateTime.of(appointment.getAppointmentDate(), appointment.getAppointmentTime())
+                .isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("This appointment time has already passed, so it can no longer be cancelled.");
+        }
+
+        String cleanReason = cleanReason(reason);
+        appointment.setStatus(Appointment.AppointmentStatus.CANCELLED);
+        appointment.setCancellationReason(cleanReason);
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        reminderService.deactivateAppointmentReminders(appointment.getId());
+
+        Pet pet = appointment.getPet();
+        User owner = pet.getOwner();
+
+        safeNotify(owner, Notification.NotificationType.APPOINTMENT_CANCELLED,
+                "Appointment cancelled by the doctor",
+                TextUtils.doctorLabel(doctor.getName()) + " cancelled your appointment for " + describe(appointment) + "."
+                        + (cleanReason != null ? " Reason: " + cleanReason : ""),
+                "/owner/appointments", appointment.getId());
+
+        try {
+            emailService.sendAppointmentCancelledToOwner(owner.getEmail(), owner.getName(), pet.getName(),
+                    doctor.getName(), appointment.getAppointmentDate(), appointment.getAppointmentTime(), cleanReason);
+        } catch (Exception e) {
+            logger.error("❌ Failed to send cancellation email to owner: {}", e.getMessage());
+        }
+
+        return convertToResponseDTO(savedAppointment);
+    }
+
+    // Trim a free-text reason and keep it within the column size (null when empty)
+    private String cleanReason(String reason) {
+        if (reason == null) return null;
+        String r = reason.trim();
+        if (r.isEmpty()) return null;
+        return r.length() > 250 ? r.substring(0, 250) : r;
     }
 
     // ✅ Get Appointments by Owner
@@ -421,6 +510,25 @@ public class AppointmentService {
             throw new RuntimeException("Appointment is already " + newStatus.name().toLowerCase() + "!");
         }
 
+        // Valid moves: PENDING -> APPROVED / REJECTED, APPROVED -> COMPLETED
+        if (newStatus == Appointment.AppointmentStatus.APPROVED
+                && appointment.getStatus() != Appointment.AppointmentStatus.PENDING) {
+            throw new RuntimeException("Only pending appointments can be approved.");
+        }
+        if (newStatus == Appointment.AppointmentStatus.REJECTED
+                && appointment.getStatus() != Appointment.AppointmentStatus.PENDING) {
+            throw new RuntimeException("Only pending appointments can be rejected. To call off an approved appointment, use Cancel.");
+        }
+        if (newStatus == Appointment.AppointmentStatus.COMPLETED) {
+            if (appointment.getStatus() != Appointment.AppointmentStatus.APPROVED) {
+                throw new RuntimeException("Only approved appointments can be marked as completed.");
+            }
+            if (LocalDateTime.of(appointment.getAppointmentDate(), appointment.getAppointmentTime())
+                    .isAfter(LocalDateTime.now())) {
+                throw new RuntimeException("You can mark this appointment as completed once its time has started.");
+            }
+        }
+
         appointment.setStatus(newStatus);
         if (newStatus == Appointment.AppointmentStatus.REJECTED
                 && (appointment.getRejectionReason() == null || appointment.getRejectionReason().isBlank())) {
@@ -454,7 +562,7 @@ public class AppointmentService {
         String doctorProfileImage = doctorEntity.map(Doctor::getProfileImage).orElse(null);
         Long doctorProfileId = doctorEntity.map(Doctor::getId).orElse(null);
 
-        return new AppointmentResponseDTO(
+        AppointmentResponseDTO dto = new AppointmentResponseDTO(
                 appointment.getId(),
                 pet.getId(),
                 pet.getName(),
@@ -474,6 +582,8 @@ public class AppointmentService {
                 appointment.getCreatedAt(),
                 appointment.getUpdatedAt()
         );
+        dto.setCancellationReason(appointment.getCancellationReason());
+        return dto;
     }
 }
 

@@ -18,6 +18,7 @@ import {
   FaVenusMars, FaIdBadge, FaUserMd, FaCheckCircle, FaClock,
   FaChartBar, FaEdit,
 } from 'react-icons/fa';
+import { formatDoctorName } from '../../utils/doctorName';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -440,7 +441,7 @@ const OwnerDashboard = () => {
                           <FaUserMd className="text-sm" />
                         </span>
                         <div>
-                          <p className="font-semibold text-ink-800 text-sm">Dr. {a.doctorName}</p>
+                          <p className="font-semibold text-ink-800 text-sm">{formatDoctorName(a.doctorName)}</p>
                           <p className="text-xs text-ink-400">{a.appointmentDate} at {a.appointmentTime}</p>
                         </div>
                       </div>
@@ -479,5 +480,6 @@ const OwnerDashboard = () => {
 };
 
 export default OwnerDashboard;
+
 
 

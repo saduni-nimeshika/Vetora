@@ -4,6 +4,7 @@ import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import DoctorReviews from './DoctorReviews';
+import DoctorAvailabilityCalendar from './DoctorAvailabilityCalendar';
 import { StarDisplay } from './StarRating';
 import { formatDoctorName } from '../../utils/doctorName';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -196,6 +197,8 @@ const DoctorProfilePublic = () => {
               </div>
             </div>
           </div>
+
+          <DoctorAvailabilityCalendar doctorId={doctorId} />
 
           <DoctorReviews doctorId={doctorId} doctorName={formatDoctorName(doctor.user?.name)} summary={ratingSummary} onChanged={fetchRatings} />
 

@@ -5,6 +5,7 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { FaCalendar, FaArrowLeft, FaUserMd, FaExchangeAlt, FaPaw } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+import { formatDoctorName } from '../../utils/doctorName';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -270,7 +271,7 @@ const BookAppointment = () => {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-ink-800 truncate">
-                          Dr. {selectedDoctor.user?.name || preselectedDoctorName}
+                          {formatDoctorName(selectedDoctor.user?.name || preselectedDoctorName)}
                         </p>
                         <p className="text-xs text-ink-500 truncate">{selectedDoctor.specialisation}</p>
                       </div>
@@ -299,7 +300,7 @@ const BookAppointment = () => {
                       <option value="">Select a doctor</option>
                       {doctors.map((doctor) => (
                         <option key={doctor.id} value={doctor.user?.id}>
-                          Dr. {doctor.user?.name} — {doctor.specialisation || 'General'}
+                          {formatDoctorName(doctor.user?.name)} — {doctor.specialisation || 'General'}
                           {doctor.distanceKm != null ? ` (${doctor.distanceKm} km)` : ''}
                         </option>
                       ))}
@@ -418,4 +419,6 @@ const BookAppointment = () => {
 };
 
 export default BookAppointment;
+
+
 

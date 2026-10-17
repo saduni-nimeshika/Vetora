@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { FaFileMedical, FaArrowLeft } from 'react-icons/fa';
+import { formatDoctorName } from '../../utils/doctorName';
 
 const MedicalRecords = () => {
   const { petId } = useParams();
@@ -76,7 +77,7 @@ const MedicalRecords = () => {
                     </p>
                   )}
                   <p className="text-xs text-gray-400 mt-2">
-                    Doctor: Dr. {record.doctorName} • {record.createdAt?.split('T')[0]}
+                    Doctor: {formatDoctorName(record.doctorName)} • {record.createdAt?.split('T')[0]}
                   </p>
                 </div>
               </div>

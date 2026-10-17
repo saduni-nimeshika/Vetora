@@ -16,6 +16,7 @@ import {
   FaHourglassHalf, FaFileMedicalAlt, FaCalendarDay, FaPaw,
   FaChartBar, FaArrowRight,
 } from 'react-icons/fa';
+import { formatDoctorName } from '../../utils/doctorName';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
@@ -154,7 +155,7 @@ const DoctorDashboard = () => {
             )}
           </span>
           <div>
-            <h1 className="text-2xl font-extrabold text-ink-900 font-display">Welcome, Dr. {user?.name}</h1>
+            <h1 className="text-2xl font-extrabold text-ink-900 font-display">Welcome, {formatDoctorName(user?.name)}</h1>
             <p className="text-ink-400 text-sm mt-0.5">
               {todayCount > 0 ? (
                 <span className="inline-flex items-center gap-1.5 text-primary-600 font-semibold">
@@ -307,6 +308,9 @@ const DoctorDashboard = () => {
 };
 
 export default DoctorDashboard;
+
+
+
 
 
 

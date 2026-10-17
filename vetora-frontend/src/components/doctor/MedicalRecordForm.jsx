@@ -5,6 +5,7 @@ import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FaFileMedical, FaSave, FaPaw, FaArrowLeft, FaUserMd, FaSearch } from 'react-icons/fa';
+import { formatDoctorName } from '../../utils/doctorName';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -131,7 +132,7 @@ const MedicalRecordForm = () => {
         <span className="w-7 h-7 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">
           <FaUserMd className="text-xs" />
         </span>
-        Recorded by <span className="font-semibold text-ink-700">Dr. {user?.name}</span>
+        Recorded by <span className="font-semibold text-ink-700">{formatDoctorName(user?.name)}</span>
       </motion.div>
 
       <motion.div variants={itemVariants} className="card">
@@ -290,5 +291,6 @@ const MedicalRecordForm = () => {
 };
 
 export default MedicalRecordForm;
+
 
 

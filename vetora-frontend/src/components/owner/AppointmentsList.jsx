@@ -42,18 +42,53 @@ const AppointmentsList = () => {
     }
   };
 
-  const handleCancel = async (appointmentId) => {
-    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
-    setCancellingId(appointmentId);
+  // ---- Cancel flow: button -> confirmation window (with optional reason) -> API ----
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+
+  const quickReasons = ['Change of plans', 'My pet is feeling better', 'Found another vet', 'Booked by mistake'];
+
+  // Only PENDING or APPROVED appointments that have not happened yet can be cancelled
+  const canCancel = (app) =>
+    (app.status === 'PENDING' || app.status === 'APPROVED') &&
+    new Date(`${app.appointmentDate}T${app.appointmentTime}`) > new Date();
+
+  const openCancel = (app) => {
+    setCancelTarget(app);
+    setCancelReason('');
+  };
+
+  const closeCancel = () => {
+    if (cancellingId) return;
+    setCancelTarget(null);
+    setCancelReason('');
+  };
+
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    setCancellingId(cancelTarget.id);
     try {
-      await api.put(`/api/v1/owner/appointments/${appointmentId}/cancel`);
-      await fetchAppointments();
-      toast.success('Appointment cancelled successfully');
+      const reason = cancelReason.trim();
+      const query = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+      await api.put(`/api/v1/owner/appointments/${cancelTarget.id}/cancel${query}`);
+      toast.success('Appointment cancelled. The doctor has been notified.');
     } catch (error) {
-      toast.error('Failed to cancel appointment');
+      toast.error(error.response?.data?.error || 'Failed to cancel appointment');
     } finally {
       setCancellingId(null);
+      setCancelTarget(null);
+      setCancelReason('');
+      fetchAppointments();
     }
+  };
+
+  // Short note shown under the status when the doctor/owner gave a reason
+  const reasonText = (app) => {
+    if (app.status === 'CANCELLED' && app.cancellationReason) return `Reason: ${app.cancellationReason}`;
+    if (app.status === 'REJECTED' && app.rejectionReason && app.rejectionReason !== 'No reason provided') {
+      return `Reason: ${app.rejectionReason}`;
+    }
+    return null;
   };
 
   const getStatusBadge = (status) => {
@@ -204,16 +239,17 @@ const AppointmentsList = () => {
                       <td>{app.appointmentTime}</td>
                       <td>
                         <span className={getStatusBadge(app.status)}>{app.status}</span>
+                        {reasonText(app) && (
+                          <p className="text-xs text-ink-400 mt-1 max-w-[220px] leading-snug">{reasonText(app)}</p>
+                        )}
                       </td>
                       <td className="text-right">
-                        {(app.status === 'PENDING' || app.status === 'APPROVED') && (
+                        {canCancel(app) && (
                           <button
-                            onClick={() => handleCancel(app.id)}
-                            disabled={cancellingId === app.id}
-                            className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 ml-auto"
-                            title="Cancel"
+                            onClick={() => openCancel(app)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
                           >
-                            <FaTimes className="text-sm" />
+                            <FaTimes className="text-[10px]" /> Cancel
                           </button>
                         )}
                       </td>
@@ -263,18 +299,19 @@ const AppointmentsList = () => {
                     </div>
                     <span className={getStatusBadge(app.status)}>{app.status}</span>
                   </div>
+                  {reasonText(app) && (
+                    <p className="text-xs text-ink-400 mb-3 leading-snug">{reasonText(app)}</p>
+                  )}
                   <div className="flex items-center justify-between pt-3 border-t border-ink-100">
                     <p className="text-sm text-ink-500 flex items-center gap-1.5">
                       <FaClock className="text-primary-400 text-xs" /> {app.appointmentDate} at {app.appointmentTime}
                     </p>
-                    {(app.status === 'PENDING' || app.status === 'APPROVED') && (
+                    {canCancel(app) && (
                       <button
-                        onClick={() => handleCancel(app.id)}
-                        disabled={cancellingId === app.id}
-                        className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
-                        title="Cancel"
+                        onClick={() => openCancel(app)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
                       >
-                        <FaTimes className="text-sm" />
+                        <FaTimes className="text-[10px]" /> Cancel
                       </button>
                     )}
                   </div>
@@ -284,6 +321,82 @@ const AppointmentsList = () => {
           </motion.div>
         </>
       )}
+
+      {/* Cancel confirmation window */}
+      <AnimatePresence>
+        {cancelTarget && (
+          <motion.div
+            key="cancel-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+            onClick={closeCancel}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="bg-white rounded-2xl shadow-elevated w-full max-w-md p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-ink-900">Cancel this appointment?</h3>
+
+              <div className="mt-4 rounded-xl bg-ink-50 p-3 text-sm text-ink-600 space-y-1">
+                <p><span className="text-ink-400">Pet:</span> <b className="text-ink-800">{cancelTarget.petName}</b></p>
+                <p><span className="text-ink-400">Doctor:</span> <b className="text-ink-800">{formatDoctorName(cancelTarget.doctorName)}</b></p>
+                <p><span className="text-ink-400">When:</span> <b className="text-ink-800">{cancelTarget.appointmentDate} at {cancelTarget.appointmentTime}</b></p>
+                <p><span className="text-ink-400">Status:</span> <b className="text-ink-800">{cancelTarget.status}</b></p>
+              </div>
+
+              <p className="mt-3 text-xs text-ink-500">
+                {cancelTarget.status === 'APPROVED'
+                  ? 'The doctor has already accepted this appointment. Cancelling will free the time slot and notify the doctor.'
+                  : 'Cancelling will withdraw your request and free the time slot.'}
+                {' '}This cannot be undone. You can book a new appointment at any time.
+              </p>
+
+              <label className="form-label mt-4">Reason (optional)</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {quickReasons.map((r) => (
+                  <button
+                    type="button"
+                    key={r}
+                    onClick={() => setCancelReason(r)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                      cancelReason === r ? 'bg-primary-600 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className="textarea-field"
+                rows="2"
+                maxLength={250}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Tell the doctor why (optional)"
+              />
+
+              <div className="mt-5 flex gap-3 justify-end">
+                <button type="button" onClick={closeCancel} disabled={!!cancellingId} className="btn-secondary">
+                  Keep appointment
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmCancel}
+                  disabled={!!cancellingId}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-60"
+                >
+                  {cancellingId ? 'Cancelling...' : 'Yes, cancel appointment'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

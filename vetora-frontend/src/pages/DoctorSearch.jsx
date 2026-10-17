@@ -29,6 +29,15 @@ const doctorIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
+// Distinct blue dot for the user's own position, so it can't be mistaken
+// for a doctor pin.
+const userIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 2px rgba(37,99,235,0.35), 0 1px 4px rgba(0,0,0,0.35);"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.07 } },
@@ -40,7 +49,7 @@ const itemVariants = {
 
 const LocationMarker = ({ position }) => {
   return position ? (
-    <Marker position={position}>
+    <Marker position={position} icon={userIcon}>
       <Popup>📍 Your Location</Popup>
     </Marker>
   ) : null;
@@ -82,6 +91,8 @@ const DoctorSearch = () => {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [error, setError] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  // Doctors are only listed after the user actually presses Search
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -98,6 +109,7 @@ const DoctorSearch = () => {
     try {
       setLoading(true);
       setError(null);
+      setHasSearched(true);
       const params = new URLSearchParams();
       if (userLocation) {
         params.append('lat', userLocation.lat);
@@ -118,11 +130,6 @@ const DoctorSearch = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (userLocation) searchDoctors();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -233,8 +240,8 @@ const DoctorSearch = () => {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
                 <LocationMarker position={[userLocation.lat, userLocation.lng]} />
-                <FitBoundsToResults userLocation={userLocation} doctors={doctors} />
-                {doctors.filter((d) => d.latitude && d.longitude).map((doctor) => (
+                {hasSearched && <FitBoundsToResults userLocation={userLocation} doctors={doctors} />}
+                {hasSearched && doctors.filter((d) => d.latitude && d.longitude).map((doctor) => (
                   <Marker
                     key={doctor.id}
                     position={[doctor.latitude, doctor.longitude]}
@@ -289,10 +296,18 @@ const DoctorSearch = () => {
         <div>
           <div className="card !p-4 max-h-[520px] overflow-y-auto">
             <h2 className="font-semibold text-ink-800 mb-4 px-1">
-              {doctors.length} Doctor{doctors.length !== 1 ? 's' : ''} Found
+              {hasSearched ? `${doctors.length} Doctor${doctors.length !== 1 ? 's' : ''} Found` : 'Find a Doctor'}
             </h2>
 
-            {loading ? (
+            {!hasSearched ? (
+              <div className="empty-state !py-10">
+                <FaSearch className="text-3xl text-ink-300 mb-2" />
+                <p className="text-ink-500 font-medium text-sm">Search to see doctors</p>
+                <p className="text-ink-400 text-xs mt-1">
+                  Pick a district, city or specialisation (or just use your location), then press Search
+                </p>
+              </div>
+            ) : loading ? (
               <div className="text-center py-10">
                 <div className="spinner w-8 h-8 mx-auto" />
                 <p className="text-ink-400 mt-2 text-sm">Searching...</p>

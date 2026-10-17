@@ -20,6 +20,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
+import { formatDoctorName } from '../../utils/doctorName';
 
 ChartJS.register(
   CategoryScale,
@@ -510,7 +511,7 @@ const PetProfile = () => {
                       </div>
                       <div className="mt-2 flex items-center gap-2">
                         <FaUserMd className="text-ink-400 text-xs" />
-                        <span className="text-sm text-ink-500">Dr. {record.doctorName}</span>
+                        <span className="text-sm text-ink-500">{formatDoctorName(record.doctorName)}</span>
                       </div>
                     </div>
                   ))}
@@ -574,7 +575,7 @@ const PetProfile = () => {
                             <p className="text-sm text-ink-500 mt-2">{pres.instructions}</p>
                           )}
                           {pres.doctorName && (
-                            <p className="text-xs text-ink-400 mt-2">Dr. {pres.doctorName}</p>
+                            <p className="text-xs text-ink-400 mt-2">{formatDoctorName(pres.doctorName)}</p>
                           )}
                         </div>
                         <span className={`${pres.isActive ? 'badge-success' : 'badge-neutral'} shrink-0`}>
@@ -600,7 +601,7 @@ const PetProfile = () => {
                     <div key={app.id} className="card-hover !shadow-none border !p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-semibold text-ink-800">Dr. {app.doctorName}</h4>
+                          <h4 className="font-semibold text-ink-800">{formatDoctorName(app.doctorName)}</h4>
                           <p className="text-sm text-ink-500">{app.appointmentDate} at {app.appointmentTime}</p>
                           {app.notes && <p className="text-sm text-ink-500 mt-1">{app.notes}</p>}
                         </div>
@@ -635,7 +636,7 @@ const PetProfile = () => {
                             })}
                           </p>
                           {r.doctorName && (
-                            <p className="text-sm text-ink-500 mt-1">Dr. {r.doctorName}</p>
+                            <p className="text-sm text-ink-500 mt-1">{formatDoctorName(r.doctorName)}</p>
                           )}
                         </div>
                         <span className={r.isSent ? 'badge-success' : 'badge-warning'}>
